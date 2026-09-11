@@ -437,6 +437,20 @@ export function createCharacter(
     arm(1);
 
     // Merge each articulated part by material; clones share all resulting GPU geometry.
+    // ponytail: one material per articulated part (8 meshes/char); detail is hidden behind frosted glass anyway
+    const dominant = (parent: ThreeType.Group): ThreeType.Material => {
+      const n = parent.name;
+      if (n === 'torso') return armor;
+      if (n === 'head') return seam;
+      if (n === 'shin') return boot;
+      return cloth;
+    };
+    for (const [parent, materials] of bins) {
+      const all: ThreeType.BufferGeometry[] = [];
+      for (const source of materials.values()) all.push(...source);
+      materials.clear();
+      materials.set(dominant(parent), all);
+    }
     for (const [parent, materials] of bins)
       for (const [material, source] of materials) {
         const geometries = source.map((g) => (g.index ? g.toNonIndexed() : g));
