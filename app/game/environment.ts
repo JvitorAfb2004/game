@@ -18,6 +18,7 @@ export function createEnvironment(
     x: number;
     z: number;
     side: number;
+    half: number;
   }[] = [];
 
   const corridorWidth = 3;
@@ -32,6 +33,10 @@ export function createEnvironment(
     color: 0xbfc4c2,
     roughness: 0.92,
   });
+  const corridorWallMat = new THREE.MeshStandardMaterial({
+    color: 0x5a6066,
+    roughness: 0.92,
+  });
   const floorMat = new THREE.MeshStandardMaterial({
     color: 0x5f6668,
     roughness: 0.95,
@@ -40,7 +45,7 @@ export function createEnvironment(
     color: 0xd7dad8,
     roughness: 0.96,
   });
-  const glassMat = new THREE.MeshPhysicalMaterial({
+  const glassMat = new THREE.MeshStandardMaterial({
     color: 0xbfe3df,
     transparent: true,
     opacity: 0.16,
@@ -54,6 +59,11 @@ export function createEnvironment(
     color: 0x24282c,
     roughness: 0.45,
     metalness: 0.6,
+  });
+  const switchMat = new THREE.MeshStandardMaterial({
+    color: 0xf2f3ee,
+    roughness: 0.5,
+    metalness: 0.05,
   });
 
   const collider = (
@@ -75,6 +85,20 @@ export function createEnvironment(
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(w, ceilingHeight, d),
       wallMat,
+    );
+    mesh.position.set(x, ceilingHeight / 2, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    mesh.updateMatrix();
+    scene.add(mesh);
+    collider(x, z, w, d);
+  };
+
+  const corridorWall = (x: number, z: number, w: number, d: number) => {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(w, ceilingHeight, d),
+      corridorWallMat,
     );
     mesh.position.set(x, ceilingHeight / 2, z);
     mesh.castShadow = true;
@@ -107,6 +131,22 @@ export function createEnvironment(
     mesh.position.set(x, panelH / 2, z);
     scene.add(mesh);
     collider(x, z, 0.12, w);
+  };
+
+  const addSolid = (
+    x: number,
+    y: number,
+    z: number,
+    w: number,
+    h: number,
+    d: number,
+    mat: ThreeType.Material,
+  ) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
   };
 
   const floor = new THREE.Mesh(
@@ -142,14 +182,34 @@ export function createEnvironment(
       // Glass facade with a central hinged door.
       const xFace = side * halfCorridor;
       const panelWidth = roomWidth / 2 - doorHalf;
+      const upperH = ceilingHeight - panelH;
+      const upperY = panelH + upperH / 2;
       addPanel(xFace, center - (doorHalf + panelWidth / 2), panelWidth);
       addPanel(xFace, center + (doorHalf + panelWidth / 2), panelWidth);
+      addSolid(
+        xFace,
+        upperY,
+        center - (doorHalf + panelWidth / 2),
+        0.3,
+        upperH,
+        panelWidth,
+        corridorWallMat,
+      );
+      addSolid(
+        xFace,
+        upperY,
+        center + (doorHalf + panelWidth / 2),
+        0.3,
+        upperH,
+        panelWidth,
+        corridorWallMat,
+      );
       addBox(
         xFace,
-        panelH + (ceilingHeight - panelH) / 2,
+        upperY,
         center,
         0.12,
-        ceilingHeight - panelH,
+        upperH,
         doorHalf * 2,
       );
       addBox(xFace, panelH / 2, center - doorHalf, 0.12, panelH, 0.08);
@@ -170,23 +230,25 @@ export function createEnvironment(
       leafFrame.position.set(0, panelH - 0.05, doorHalf);
       pivot.add(leaf, leafFrame);
       scene.add(pivot);
-      doors.push({ group: pivot, x: xFace, z: center, side });
+      doors.push({ group: pivot, x: xFace, z: center, side, half: doorHalf });
+      // Small light switch inside the room, on the back wall.
+      addSolid(side * (xFar - 0.2), 1.25, center, 0.05, 0.14, 0.09, switchMat);
     }
     // Corridor side wall segments fill the gaps between rooms.
     for (let i = 0; i < roomCenters.length - 1; i++) {
       const zTop = roomCenters[i] - roomWidth / 2;
       const zBottom = roomCenters[i + 1] + roomWidth / 2;
-      wall(side * halfCorridor, (zTop + zBottom) / 2, 0.3, zTop - zBottom);
+      corridorWall(side * halfCorridor, (zTop + zBottom) / 2, 0.3, zTop - zBottom);
     }
     // End caps above the first and below the last room.
     const zTopEnd = roomCenters[0] + roomWidth / 2;
     const zBottomEnd = roomCenters[roomCenters.length - 1] - roomWidth / 2;
-    wall(side * halfCorridor, zTopEnd + 0.75, 0.3, 1.8);
-    wall(side * halfCorridor, zBottomEnd - 0.75, 0.3, 1.8);
+    corridorWall(side * halfCorridor, zTopEnd + 0.75, 0.3, 1.8);
+    corridorWall(side * halfCorridor, zBottomEnd - 0.75, 0.3, 1.8);
   }
   // Corridor end walls.
-  wall(0, roomCenters[0] + roomWidth / 2 + 1.8, corridorWidth + 0.6, 0.3);
-  wall(0, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, 0.3);
+  corridorWall(0, roomCenters[0] + roomWidth / 2 + 1.8, corridorWidth + 0.6, 0.3);
+  corridorWall(0, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, 0.3);
 
   scene.background = new THREE.Color(0x1b2126);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 2.2));
@@ -204,8 +266,8 @@ export function createEnvironment(
     scene.add(mesh);
   };
   for (const center of roomCenters) {
-    panel(3.4, center, 1.2, 2.4);
-    panel(-3.4, center, 1.2, 2.4);
+    panel(3.4, center, 0.7, 1.4);
+    panel(-3.4, center, 0.7, 1.4);
   }
   for (let z = 10; z > -34; z -= 11) panel(0, z, 1.4, 1.4);
   for (const z of [8, -6, -20]) {

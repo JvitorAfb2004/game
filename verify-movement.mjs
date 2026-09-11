@@ -25,7 +25,10 @@ function fixture() {
   Object.assign(g, {
     camera: new THREE.PerspectiveCamera(68, 1, 0.05, 200),
     scene: new THREE.Scene(),
-    env: { colliders: [{ minX: -1, maxX: 1, minZ: -3, maxZ: -2, maxY: 1.07 }] },
+    env: {
+      colliders: [{ minX: -1, maxX: 1, minZ: -3, maxZ: -2, maxY: 1.07 }],
+      doors: [],
+    },
     state: { mode: 'playing' },
     keys: new Set(),
     velocity: new THREE.Vector3(),
@@ -55,12 +58,16 @@ g.vertical = -1;
 g.updatePlayer(0.05);
 assert.equal(g.feetY, 1.07, 'land on low cover');
 assert.equal(g.vertical, 0);
-g.env = { colliders: [], doors: [{ group: new THREE.Object3D(), x: 0, z: 0, side: 1 }] };
+g.env = { colliders: [], doors: [{ group: new THREE.Object3D(), x: 0, z: 0, side: 1, half: 0.6 }] };
 g.camera.position.set(0, 1.7, 0);
 g.updateDoors(0.05);
 assert(g.env.doors[0].group.rotation.y > 0, 'door opens when the player is near');
 g.camera.position.set(0, 1.7, 10);
 g.updateDoors(0.5);
 assert(g.env.doors[0].group.rotation.y < 0.05, 'door closes when the player is away');
+g.env = { colliders: [], doors: [{ group: new THREE.Object3D(), x: 1.5, z: 0, side: 1, half: 0.6 }] };
+assert(g.blocked(1.5, 0, 0.32, 0), 'closed door blocks movement');
+g.env.doors[0].group.rotation.y = 1.55;
+assert(!g.blocked(1.5, 0, 0.32, 0), 'open door passes');
 await fs.unlink('./.verify-engine.mjs');
-console.log('PASS: collision, swept movement, low-cover landing, door proximity.');
+console.log('PASS: collision, swept movement, low-cover landing, door proximity, solid door.');

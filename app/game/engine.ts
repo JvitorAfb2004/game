@@ -288,6 +288,7 @@ export class Game {
       x > 23.7 ||
       z < -41.7 ||
       z > 18.5 ||
+      this.doorBlocked(x, z, r, feet) ||
       this.env.colliders.some(
         (c) =>
           feet < (c.maxY ?? 2.66) - 0.025 &&
@@ -297,6 +298,15 @@ export class Game {
           z - r < c.maxZ,
       )
     );
+  }
+  doorBlocked(x: number, z: number, r: number, feet: number) {
+    if (feet > 0.5) return false;
+    for (const d of this.env.doors) {
+      if (Math.abs(d.group.rotation.y) > 0.4) continue;
+      if (Math.abs(x - d.x) < r + 0.08 && Math.abs(z - d.z) < d.half + r)
+        return true;
+    }
+    return false;
   }
   move(pos: THREE.Vector3, dx: number, dz: number, r = 0.32, feet = 0) {
     const length = Math.hypot(dx, dz),
@@ -374,7 +384,7 @@ export class Game {
         this.camera.position.x - d.x,
         this.camera.position.z - d.z,
       );
-      const target = dist < 3 ? d.side * 1.55 : 0;
+      const target = dist < 1 ? d.side * 1.55 : 0;
       d.group.rotation.y +=
         (target - d.group.rotation.y) * (1 - Math.exp(-dt * 9));
     }
