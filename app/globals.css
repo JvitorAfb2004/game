@@ -36,3 +36,13 @@
 .hud-players em{color:#ffb36b;font-style:normal}
 .hud-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7fd6c2}
 .hud-fps{position:fixed;top:84px;right:16px;z-index:30;color:#7fd6c2;font-family:monospace;font-size:.8rem;background:#0a0f1288;padding:.35rem .6rem;border-radius:4px}
+.xp-app{position:absolute;top:60px;left:60px;width:min(420px,70vw);background:#ece9d8;color:#111;border:2px solid #0a246a;padding:.6rem;font-family:Tahoma,Arial,sans-serif;font-size:.85rem;z-index:5}
+.xp-app-bar{background:linear-gradient(#0a246a,#3a6ea5);color:#fff;padding:.3rem .5rem;margin:-.6rem -.6rem .6rem;font-weight:700}
+.xp-files{list-style:none;margin:0 0 .5rem;padding:0;max-height:140px;overflow:auto}
+.xp-files li{display:flex;gap:.4rem;align-items:center}
+.xp-files button{text-align:left;flex:1}
+.xp-empty{color:#666}
+.xp-app textarea{width:100%;box-sizing:border-box;font-family:'Lucida Console',monospace}
+.xp-calc-screen{display:block;background:#c8d8c0;border:1px inset #888;text-align:right;padding:.4rem;font-family:monospace;font-size:1.2rem;margin-bottom:.4rem}
+.xp-calc-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.xp-calc-keys button{padding:.5rem}

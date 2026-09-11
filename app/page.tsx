@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import type { Game, Snapshot } from './game/engine';
 import type { GraphicsPreset } from './game/graphics';
 import { api } from './api';
+import { Notepad, Calculator } from './game/desktop';
 
 const initial: Snapshot = {
   mode: 'menu',
@@ -56,6 +57,7 @@ export default function Home() {
   const [players, setPlayers] = useState<import('./game/net').NetPlayer[]>([]);
   const [netOnline, setNetOnline] = useState(true);
   const [welcome, setWelcome] = useState<import('./game/net').Welcome | null>(null);
+  const [xpApp, setXpApp] = useState<'home' | 'notepad' | 'calc'>('home');
   useEffect(() => {
     let disposed = false;
     void import('./game/engine')
@@ -237,16 +239,20 @@ export default function Home() {
       {state.desktop && (
         <dialog className="xp" open aria-label="Área de trabalho">
           <div className="xp-icons">
-            <button type="button">
-              <span aria-hidden="true">🖥</span>Meu computador
+            <button type="button" onClick={() => setXpApp('notepad')}>
+              <span aria-hidden="true">📝</span>Bloco de notas
             </button>
-            <button type="button">
-              <span aria-hidden="true">🗑</span>Lixeira
+            <button type="button" onClick={() => setXpApp('calc')}>
+              <span aria-hidden="true">🧮</span>Calculadora
             </button>
-            <button type="button">
-              <span aria-hidden="true">🌐</span>Internet
+            <button type="button" onClick={() => setXpApp('home')}>
+              <span aria-hidden="true">🖥</span>Área de trabalho
             </button>
           </div>
+          {xpApp === 'notepad' && state.desktopRoom && (
+            <Notepad computerId={state.desktopRoom} />
+          )}
+          {xpApp === 'calc' && <Calculator />}
           <div className="xp-taskbar">
             <button
               type="button"
@@ -263,6 +269,7 @@ export default function Home() {
                   type="button"
                   onClick={() => {
                     setStartOpen(false);
+                    setXpApp('home');
                     engine.current?.exitDesktop();
                   }}
                 >
