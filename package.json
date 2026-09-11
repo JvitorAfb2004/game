@@ -12,7 +12,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types verify-world.mjs && node --experimental-strip-types verify-combat.mjs",
+    "test": "node --experimental-strip-types verify-world.mjs && node --experimental-strip-types verify-combat.mjs && node --experimental-strip-types verify-graphics.mjs",
     "format": "oxfmt",
     "lint": "oxlint"
   },
