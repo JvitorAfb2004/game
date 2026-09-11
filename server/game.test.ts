@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { clampMove, DEFAULT_SPAWN } from './game/movement.ts';
 import { GameRoom } from './game/room.ts';
 
-test('clampMove limita teleporte e bordas', () => {
+void test('clampMove limita teleporte e bordas', () => {
   assert.deepEqual(clampMove({ x: 0, z: 0 }, 0.2, 0.2), { x: 0.2, z: 0.2 });
   const far = clampMove(DEFAULT_SPAWN, 500, 500);
   assert(
@@ -14,7 +14,7 @@ test('clampMove limita teleporte e bordas', () => {
   assert(oob.x <= 23.7 && oob.z <= 18.5, 'dentro dos limites');
 });
 
-test('GameRoom adiciona, move e remove jogador', () => {
+void test('GameRoom adiciona, move e remove jogador', () => {
   const room = new GameRoom();
   room.addPlayer({ id: 'a', username: 'ana', x: 0, z: 0, yaw: 0 }, { send: () => {} });
   assert.equal(room.snapshotPlayers().length, 1);

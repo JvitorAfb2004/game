@@ -24,6 +24,7 @@ const initial: Snapshot = {
   player: { x: 0, z: 13 },
   prompt: '',
   desktop: false,
+  desktopRoom: null,
 };
 
 export default function Home() {
@@ -44,12 +45,17 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [session, setSession] = useState<{ token: string; username: string } | null>(null);
+  const [session, setSession] = useState<{ token: string; username: string } | null>(
+    () => {
+      const token = api.token();
+      const name = api.username();
+      return token && name ? { token, username: name } : null;
+    },
+  );
   const net = useRef<import('./game/net').Net | null>(null);
   const [players, setPlayers] = useState<import('./game/net').NetPlayer[]>([]);
   const [netOnline, setNetOnline] = useState(true);
   const [welcome, setWelcome] = useState<import('./game/net').Welcome | null>(null);
-  const [desktopRoom, setDesktopRoom] = useState<string | null>(null);
   useEffect(() => {
     let disposed = false;
     void import('./game/engine')
@@ -75,11 +81,6 @@ export default function Home() {
       engine.current?.dispose();
       engine.current = null;
     };
-  }, []);
-  useEffect(() => {
-    const token = api.token();
-    const name = api.username();
-    if (token && name) setSession({ token, username: name });
   }, []);
   useEffect(() => {
     if (!session) return;
@@ -112,9 +113,6 @@ export default function Home() {
       net.current = null;
     };
   }, [session, ready]);
-  useEffect(() => {
-    setDesktopRoom(state.desktop ? (engine.current?.desktopRoomId ?? null) : null);
-  }, [state.desktop]);
   useEffect(() => {
     engine.current?.configure({ muted, sensitivity, graphics });
   }, [muted, sensitivity, graphics, ready]);

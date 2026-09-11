@@ -5,11 +5,20 @@ import { createEnvironment } from './app/game/environment.ts';
 const scene = new THREE.Scene();
 const env = createEnvironment(THREE, scene);
 
-assert.equal(env.spawnPoints.length, 6, 'six rooms');
-assert.equal(env.doors.length, 6, 'six hinged doors');
+assert.equal(env.spawnPoints.length, 6, 'six desk points');
+assert.equal(env.doors.length, 7, 'six room doors + spawn door');
 assert.equal(env.rooms.length, 6, 'six switchable rooms');
+assert.equal(env.plaques.length, 6, 'six led plaques');
+assert.deepEqual(
+  env.rooms.map((r) => r.roomId),
+  ['W1', 'W2', 'W3', 'E1', 'E2', 'E3'],
+  'stable room ids',
+);
 for (const r of env.rooms)
-  assert(r.switch && r.light && r.led, 'room has light and switch');
+  assert(r.switch && r.light && r.led && r.roomId, 'room has light, switch and id');
+assert.equal(env.spawn.x, 0, 'spawn x');
+env.plaques[0].setText('SALA TESTE');
+assert.equal(env.plaques[0].text, 'SALA TESTE', 'plaque stores text');
 assert(env.colliders.length > 0, 'office has walls');
 
 const blocked = (x, z, r = 0.32) =>
@@ -19,6 +28,12 @@ const blocked = (x, z, r = 0.32) =>
 
 for (let z = 12; z > -22; z -= 0.5)
   assert(!blocked(0, z), `corridor clear at z=${z}`);
+
+// spawn room: clear center, closed sides and back
+assert(!blocked(0, 16.5), 'spawn room center clear');
+assert(blocked(2, 16.5), 'spawn room east wall');
+assert(blocked(-2, 16.5), 'spawn room west wall');
+assert(blocked(0, 18.4), 'spawn room north wall');
 
 for (const p of env.spawnPoints) {
   const side = Math.sign(p.x);

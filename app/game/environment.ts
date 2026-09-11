@@ -19,6 +19,7 @@ export function createEnvironment(
     z: number;
     side: number;
     half: number;
+    plane: 'x' | 'z';
   }[] = [];
   const rooms: {
     roomId: string;
@@ -40,6 +41,60 @@ export function createEnvironment(
   const doorHalf = 0.6;
   const roomCenters = [9, -4, -17];
   const ROOM_IDS = ['W1', 'W2', 'W3', 'E1', 'E2', 'E3'];
+
+  const plaques: {
+    roomId: string;
+    text: string;
+    x: number;
+    y: number;
+    z: number;
+    setText(t: string): void;
+  }[] = [];
+  const makePlaque = (
+    roomId: string,
+    x: number,
+    y: number,
+    z: number,
+    rotY: number,
+  ) => {
+    let ctx: CanvasRenderingContext2D | null = null;
+    let mat: ThreeType.Material;
+    if (typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 64;
+      ctx = canvas.getContext('2d');
+      const tex = new THREE.CanvasTexture(canvas);
+      mat = new THREE.MeshBasicMaterial({ map: tex });
+    } else {
+      mat = new THREE.MeshBasicMaterial({ color: 0x0b3d2e });
+    }
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.4), mat);
+    mesh.position.set(x, y, z);
+    mesh.rotation.y = rotY;
+    scene.add(mesh);
+    const entry = {
+      roomId,
+      text: '',
+      x,
+      y,
+      z,
+      setText(t: string) {
+        entry.text = t;
+        if (!ctx) return;
+        ctx.fillStyle = '#04120d';
+        ctx.fillRect(0, 0, 256, 64);
+        ctx.fillStyle = '#5cffb0';
+        ctx.font = 'bold 30px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(t.slice(0, 14).toUpperCase(), 128, 42);
+        const m = mat as ThreeType.MeshBasicMaterial;
+        if (m.map) m.map.needsUpdate = true;
+      },
+    };
+    plaques.push(entry);
+    return entry;
+  };
 
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x9aa0a0,
@@ -213,7 +268,7 @@ export function createEnvironment(
       handle.position.set(-side * 0.06, 1.05, doorHalf * 2 - 0.22);
       pivot.add(leaf, leafEdge, handle);
       scene.add(pivot);
-      doors.push({ group: pivot, x: xFace, z: center, side, half: doorHalf });
+      doors.push({ group: pivot, x: xFace, z: center, side, half: doorHalf, plane: 'x' });
 
       // Switch on the lateral wall near the door.
       const swZ = z0 + 0.22;
@@ -255,6 +310,13 @@ export function createEnvironment(
       box(ledMat, deskX + side * 0.1, 0.99, center, 0.03, 0.34, 0.42);
       collider(deskX, center, 1.0, 1.7);
       notebooks.push({ roomId, x: deskX + side * 0.1, y: 0.99, z: center });
+      makePlaque(
+        roomId,
+        side * (halfCorridor - 0.04),
+        1.6,
+        center + doorHalf + 1.0,
+        side === 1 ? -Math.PI / 2 : Math.PI / 2,
+      );
     }
     // Corridor side wall segments fill the gaps between rooms.
     for (let i = 0; i < roomCenters.length - 1; i++) {
@@ -279,11 +341,50 @@ export function createEnvironment(
     collider(side * halfCorridor, zTopEnd + 0.75, 0.3, 1.8);
     collider(side * halfCorridor, zBottomEnd - 0.75, 0.3, 1.8);
   }
-  // Corridor end walls.
-  box(corridorWallMat, 0, ceilingHeight / 2, roomCenters[0] + roomWidth / 2 + 1.8, corridorWidth + 0.6, ceilingHeight, 0.3);
+  // Corridor end wall (south). The north end opens into the spawn room.
   box(corridorWallMat, 0, ceilingHeight / 2, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, ceilingHeight, 0.3);
-  collider(0, roomCenters[0] + roomWidth / 2 + 1.8, corridorWidth + 0.6, 0.3);
   collider(0, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, 0.3);
+
+  // --- Sala de spawn (norte do corredor), porta de frente para o corredor ---
+  const spawnZ = 16.6;
+  const spawnHalf = 2;
+  const wallZ = roomCenters[0] + roomWidth / 2 + 1.8;
+  box(corridorWallMat, -spawnHalf, ceilingHeight / 2, spawnZ, 0.3, ceilingHeight, 4.2);
+  box(corridorWallMat, spawnHalf, ceilingHeight / 2, spawnZ, 0.3, ceilingHeight, 4.2);
+  box(corridorWallMat, 0, ceilingHeight / 2, spawnZ + 2.1, 2 * spawnHalf + 0.3, ceilingHeight, 0.3);
+  collider(-spawnHalf, spawnZ, 0.3, 4.2);
+  collider(spawnHalf, spawnZ, 0.3, 4.2);
+  collider(0, spawnZ + 2.1, 2 * spawnHalf + 0.3, 0.3);
+  const segW = (2 * spawnHalf - doorHalf * 2) / 2;
+  box(corridorWallMat, -doorHalf - segW / 2, ceilingHeight / 2, wallZ, segW, ceilingHeight, 0.3);
+  box(corridorWallMat, doorHalf + segW / 2, ceilingHeight / 2, wallZ, segW, ceilingHeight, 0.3);
+  collider(-doorHalf - segW / 2, wallZ, segW, 0.3);
+  collider(doorHalf + segW / 2, wallZ, segW, 0.3);
+  box(frameMat, 0, panelH + (ceilingHeight - panelH) / 2, wallZ, doorHalf * 2, ceilingHeight - panelH, 0.12);
+  const spawnFloor = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), floorMat);
+  spawnFloor.rotation.x = -Math.PI / 2;
+  spawnFloor.position.set(0, 0, spawnZ);
+  spawnFloor.receiveShadow = true;
+  spawnFloor.matrixAutoUpdate = false;
+  spawnFloor.updateMatrix();
+  scene.add(spawnFloor);
+  const spawnCeil = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), ceilMat);
+  spawnCeil.rotation.x = Math.PI / 2;
+  spawnCeil.position.set(0, ceilingHeight, spawnZ);
+  spawnCeil.matrixAutoUpdate = false;
+  spawnCeil.updateMatrix();
+  scene.add(spawnCeil);
+  const spawnPivot = new THREE.Group();
+  spawnPivot.position.set(-doorHalf, 0, wallZ);
+  const spawnLeaf = new THREE.Mesh(unitBox, woodMat);
+  spawnLeaf.scale.set(doorHalf * 2, panelH, 0.06);
+  spawnLeaf.position.set(doorHalf, panelH / 2, 0);
+  const spawnHandle = new THREE.Mesh(unitBox, handleMat);
+  spawnHandle.scale.set(0.16, 0.05, 0.03);
+  spawnHandle.position.set(doorHalf * 2 - 0.22, 1.05, 0.06);
+  spawnPivot.add(spawnLeaf, spawnHandle);
+  scene.add(spawnPivot);
+  doors.push({ group: spawnPivot, x: 0, z: wallZ, side: 1, half: doorHalf, plane: 'z' });
 
   // Corridor ceiling lamps, each with its light directly beneath it.
   const corridorLights: { light: ThreeType.PointLight; z: number }[] = [];
@@ -331,6 +432,8 @@ export function createEnvironment(
     rooms,
     corridorLights,
     notebooks,
+    plaques,
+    spawn: { x: 0, z: 16.5, yaw: 0 },
     spawnPoints,
     setRainCount(_count: number) {
       // Rain is removed in the office scene.

@@ -11,6 +11,7 @@ export type Snapshot = {
   player: { x: number; z: number };
   prompt: string;
   desktop: boolean;
+  desktopRoom: string | null;
 };
 
 type Room = ReturnType<typeof createEnvironment>['rooms'][number];
@@ -122,6 +123,7 @@ export class Game {
     player: { x: 0, z: 13 },
     prompt: '',
     desktop: false,
+    desktopRoom: null,
   };
   cleanup: (() => void)[] = [];
   constructor(host: HTMLDivElement, onState: (s: Snapshot) => void) {
@@ -308,6 +310,7 @@ export class Game {
       player: { x: 0, z: 13 },
       prompt: '',
       desktop: false,
+      desktopRoom: null,
     };
     this.emit();
   }
@@ -332,7 +335,10 @@ export class Game {
     if (feet > 0.5) return false;
     for (const d of this.env.doors) {
       if (Math.abs(d.group.rotation.y) > 0.4) continue;
-      if (Math.abs(x - d.x) < r + 0.08 && Math.abs(z - d.z) < d.half + r)
+      if (d.plane === 'z') {
+        if (Math.abs(z - d.z) < r + 0.08 && Math.abs(x - d.x) < d.half + r)
+          return true;
+      } else if (Math.abs(x - d.x) < r + 0.08 && Math.abs(z - d.z) < d.half + r)
         return true;
     }
     return false;
@@ -542,12 +548,7 @@ export class Game {
     (r.led.material as THREE.MeshStandardMaterial).emissiveIntensity = on ? 1.6 : 0;
   }
   applyPlaque(roomId: string, text: string) {
-    const plaques = (
-      this.env as unknown as {
-        plaques?: { roomId: string; setText(t: string): void }[];
-      }
-    ).plaques;
-    plaques?.find((p) => p.roomId === roomId)?.setText(text);
+    this.env.plaques.find((p) => p.roomId === roomId)?.setText(text);
   }
   enterDesktop() {
     this.state.mode = 'desktop';
@@ -585,6 +586,7 @@ export class Game {
       player: { x: this.camera.position.x, z: this.camera.position.z },
       prompt: this.state.prompt,
       desktop: this.state.desktop,
+      desktopRoom: this.desktopRoomId,
     });
   }
   animate = () => {

@@ -36,7 +36,7 @@ export const api = {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         Authorization: `Bearer ${this.token()}`,
-        ...(init.headers ?? {}),
+        ...(init.headers as Record<string, string> | undefined),
       },
     });
     const data = await res.json().catch(() => ({}));

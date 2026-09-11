@@ -4,7 +4,7 @@ import Fastify from 'fastify';
 import { registerAuthRoutes } from './auth/routes.ts';
 import { pool } from './db/client.ts';
 
-test('register + login + duplicado', async () => {
+void test('register + login + duplicado', async () => {
   const app = Fastify();
   await app.register(registerAuthRoutes);
   const username = `u${Date.now()}${Math.floor(Math.random() * 1e6)}`;
