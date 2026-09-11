@@ -39,12 +39,16 @@ export function createEnvironment(
   const roomCenters = [10, 1.5, -7, -15.5, -24, -32.5];
 
   const wallMat = new THREE.MeshStandardMaterial({
-    color: 0xbfc4c2,
+    color: 0x9aa0a0,
     roughness: 0.92,
   });
   const corridorWallMat = new THREE.MeshStandardMaterial({
     color: 0x565c62,
     roughness: 0.92,
+  });
+  const baseboardMat = new THREE.MeshStandardMaterial({
+    color: 0x353b3f,
+    roughness: 0.7,
   });
   const floorMat = new THREE.MeshStandardMaterial({
     color: 0x5f6668,
@@ -55,11 +59,11 @@ export function createEnvironment(
     roughness: 0.96,
   });
   const glassMat = new THREE.MeshStandardMaterial({
-    color: 0xdfe8e6,
+    color: 0x232c30,
     transparent: true,
-    opacity: 0.55,
-    roughness: 0.65,
-    metalness: 0,
+    opacity: 0.72,
+    roughness: 0.45,
+    metalness: 0.1,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
@@ -159,6 +163,9 @@ export function createEnvironment(
       box(wallMat, side * xFar, ceilingHeight / 2, center, 0.3, ceilingHeight, roomWidth);
       box(wallMat, xCenter, ceilingHeight / 2, z0, roomDepth, ceilingHeight, 0.3);
       box(wallMat, xCenter, ceilingHeight / 2, z1, roomDepth, ceilingHeight, 0.3);
+      box(baseboardMat, side * (xFar - 0.19), 0.07, center, 0.08, 0.14, roomWidth);
+      box(baseboardMat, xCenter, 0.07, z0 + 0.19, roomDepth, 0.14, 0.08);
+      box(baseboardMat, xCenter, 0.07, z1 - 0.19, roomDepth, 0.14, 0.08);
       collider(side * xFar, center, 0.3, roomWidth);
       collider(xCenter, z0, roomDepth, 0.3);
       collider(xCenter, z1, roomDepth, 0.3);
@@ -175,6 +182,9 @@ export function createEnvironment(
       box(glassMat, xFace, panelH / 2, pz1, 0.05, panelH, panelWidth);
       collider(xFace, pz0, 0.12, panelWidth);
       collider(xFace, pz1, 0.12, panelWidth);
+      // Baseboard hides the glass/floor junction.
+      box(baseboardMat, xFace, 0.07, pz0, 0.14, 0.14, panelWidth);
+      box(baseboardMat, xFace, 0.07, pz1, 0.14, 0.14, panelWidth);
       // Solid wall above the glass, up to the ceiling.
       box(corridorWallMat, xFace, upperY, pz0, 0.3, upperH, panelWidth);
       box(corridorWallMat, xFace, upperY, pz1, 0.3, upperH, panelWidth);
@@ -257,9 +267,16 @@ export function createEnvironment(
   collider(0, roomCenters[0] + roomWidth / 2 + 1.8, corridorWidth + 0.6, 0.3);
   collider(0, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, 0.3);
 
-  // Corridor ceiling LED strips (room panels are separate so they can toggle).
-  for (let z = 10; z > -34; z -= 11)
+  // Corridor ceiling lamps, each with its light directly beneath it.
+  const corridorLights: { light: ThreeType.PointLight; z: number }[] = [];
+  for (const z of [8, -6, -20, -34]) {
     box(ledMat, 0, ceilingHeight - 0.03, z, 1.4, 0.05, 1.4);
+    const p = new THREE.PointLight(0xfff2e0, 7, 13, 2);
+    p.position.set(0, ceilingHeight - 0.16, z);
+    p.visible = false;
+    scene.add(p);
+    corridorLights.push({ light: p, z });
+  }
 
   // Flush one InstancedMesh per material.
   for (const [material, matrices] of batches) {
@@ -275,11 +292,6 @@ export function createEnvironment(
   scene.background = new THREE.Color(0x1b2126);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 0.7));
   scene.add(new THREE.AmbientLight(0xffffff, 0.12));
-  for (const z of [8, -6, -20]) {
-    const p = new THREE.PointLight(0xfff2e0, 6, 14, 2);
-    p.position.set(0, ceilingHeight - 0.2, z);
-    scene.add(p);
-  }
   const lamp = new THREE.DirectionalLight(0xfff4e2, 0.6);
   lamp.position.set(6, 12, 8);
   lamp.castShadow = true;
@@ -299,6 +311,7 @@ export function createEnvironment(
     colliders,
     doors,
     rooms,
+    corridorLights,
     spawnPoints,
     setRainCount(_count: number) {
       // Rain is removed in the office scene.

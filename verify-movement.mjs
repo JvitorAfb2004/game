@@ -72,6 +72,7 @@ assert(!g.blocked(1.5, 0, 0.32, 0), 'open door passes');
 g.env = {
   colliders: [],
   doors: [],
+  corridorLights: [],
   rooms: [
     {
       on: true,

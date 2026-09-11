@@ -416,6 +416,8 @@ export class Game {
         prompt = `PRESSIONE E PARA ${r.on ? 'DESLIGAR' : 'LIGAR'} A LUZ`;
       }
     }
+    for (const c of this.env.corridorLights)
+      c.light.visible = Math.abs(this.camera.position.z - c.z) < 10;
     this.state.prompt = prompt;
   }
   toggleTargetRoom() {
