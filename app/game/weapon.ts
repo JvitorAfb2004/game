@@ -603,7 +603,7 @@ export function createWeapon(
   bevel(0.045, 0.012, 0.054, 0.003, mat.steel, 0, -0.058, 0.212, shoulderStock);
   cyl(0.008, 0.097, mat.bolt, 0, -0.059, 0.27, 'x', shoulderStock);
   // Grip and open trigger guard keep the receiver silhouette mechanically plausible.
-  const grip = profile(
+  profile(
     [
       [0.021, -0.053],
       [0.081, -0.045],

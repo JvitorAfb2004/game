@@ -48,8 +48,7 @@ export function createEnvironment(
     black = mat('black', 0x111c25, 0.58, 0.6),
     concrete = mat('concrete', 0x4c5758, 0.84, 0.03),
     yellow = mat('yellow', 0xc79a37, 0.5, 0.35),
-    wood = mat('wood', 0x675a42, 0.9, 0),
-    rubber = mat('rubber', 0x10171c, 0.8, 0);
+    wood = mat('wood', 0x675a42, 0.9, 0);
   const red = mat('red', 0x8a382e, 0.5, 0.7),
     blue = mat('blue', 0x23475c, 0.47, 0.7),
     grey = mat('grey', 0x4b605d, 0.55, 0.65),
@@ -705,7 +704,7 @@ export function createEnvironment(
     metalness: 0.7,
   });
   for (const x of [-24.5, 24.5]) {
-    const fence = flat(63, 3.4, fenceMat, x, 1.7, -12, Math.PI / 2);
+    flat(63, 3.4, fenceMat, x, 1.7, -12, Math.PI / 2);
     for (let z = -42; z < 20; z += 4.5) {
       box(edge, x, 1.9, z, 0.09, 3.8, 0.09);
       beam(

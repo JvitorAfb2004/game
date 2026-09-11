@@ -8,7 +8,6 @@ import {
   VolumeX,
   ArrowUpRight,
   Shield,
-  Radio,
   RotateCcw,
   ChevronRight,
   Settings2,
@@ -18,6 +17,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import type { Game, Snapshot } from './game/engine';
+import type { GraphicsPreset } from './game/graphics';
 
 const initial: Snapshot = {
   mode: 'menu',
@@ -49,10 +49,11 @@ export default function Home() {
     [muted, setMuted] = useState(false),
     [sensitivity, setSensitivity] = useState(1),
     [cinematic, setCinematic] = useState(true),
+    [graphics, setGraphics] = useState<GraphicsPreset>('medium'),
     [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
     let disposed = false;
-    import('./game/engine').then(({ Game }) => {
+    void import('./game/engine').then(({ Game }) => {
       if (disposed || !host.current) return;
       try {
         engine.current = new Game(host.current, setState);
@@ -62,6 +63,9 @@ export default function Home() {
           e instanceof Error ? e.message : 'Unable to initialize graphics.',
         );
       }
+    }).catch((e) => {
+      if (!disposed)
+        setError(e instanceof Error ? e.message : 'Unable to initialize graphics.');
     });
     return () => {
       disposed = true;
@@ -70,8 +74,8 @@ export default function Home() {
     };
   }, []);
   useEffect(() => {
-    engine.current?.configure({ muted, sensitivity, cinematic });
-  }, [muted, sensitivity, cinematic, ready]);
+    engine.current?.configure({ muted, sensitivity, cinematic, graphics });
+  }, [muted, sensitivity, cinematic, graphics, ready]);
   useEffect(() => {
     const f = () => setFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', f);
@@ -410,6 +414,32 @@ export default function Home() {
           </button>
           <div className="eyebrow">OPERATOR PREFERENCES</div>
           <h2>SETTINGS</h2>
+          <fieldset className="graphics-setting">
+            <legend>Graphics quality</legend>
+            <div role="radiogroup" aria-label="Graphics quality">
+              {(['low', 'medium', 'high'] as const).map((value) => (
+                <label
+                  key={value}
+                  className={graphics === value ? 'selected' : ''}
+                >
+                  <input
+                    type="radio"
+                    name="graphics-quality"
+                    value={value}
+                    checked={graphics === value}
+                    onChange={() => setGraphics(value)}
+                  />
+                  <span>
+                    {value === 'low'
+                      ? 'FRACO'
+                      : value === 'medium'
+                        ? 'MEDIO'
+                        : 'FORTE'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <label>
             Look sensitivity <b>{sensitivity.toFixed(1)}</b>
           </label>

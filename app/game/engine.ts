@@ -70,7 +70,7 @@ class Soundscape {
       this.ctx.sampleRate * 3,
       this.ctx.sampleRate,
     );
-    let d = b.getChannelData(0);
+    const d = b.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     this.rain = this.ctx.createBufferSource();
     this.rain.buffer = b;
@@ -470,7 +470,7 @@ export class Game {
     );
   }
   resize() {
-    let w = this.host.clientWidth,
+    const w = this.host.clientWidth,
       h = this.host.clientHeight;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();

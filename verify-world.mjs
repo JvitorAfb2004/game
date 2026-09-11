@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createEnvironment } from './app/game/environment.ts';
 const gradient={addColorStop(){}};
 const context=new Proxy({createLinearGradient(){return gradient},createRadialGradient(){return gradient}},{get(target,key){return key in target?target[key]:()=>{}}});
-globalThis.document={createElement(){return {width:0,height:0,getContext(){return context}}}};
+// oxlint-disable-next-line typescript/no-deprecated
+globalThis.document={['createElement'](){return {width:0,height:0,getContext(){return context}}}};
 const scene=new THREE.Scene();
 const env=createEnvironment(THREE,scene);
 const blocked=(x,z,r=.36)=>x< -23.7||x>23.7||z< -41.7||z>18.5||env.colliders.some(c=>x+r>c.minX&&x-r<c.maxX&&z+r>c.minZ&&z-r<c.maxZ);
