@@ -1085,8 +1085,9 @@ export function createEnvironment(
   cable(new THREE.Vector3(-20, 9.7, -30), new THREE.Vector3(7, 9.6, -32), 2.3);
 
   // Animate light rain in one draw call. Its very low opacity keeps the view readable.
-  const rainCount = 900,
-    rainPositions = new Float32Array(rainCount * 6),
+  const rainCount = 900;
+  let activeRainCount = rainCount;
+  const rainPositions = new Float32Array(rainCount * 6),
     rainData: { x: number; y: number; z: number; speed: number }[] = [];
   for (let i = 0; i < rainCount; i++)
     rainData.push({
@@ -1137,8 +1138,18 @@ export function createEnvironment(
       { x: -6, z: -32 },
       { x: 0, z: -38 },
     ],
+    setRainCount(count: number) {
+      activeRainCount = Math.max(0, Math.min(rainCount, Math.round(count)));
+      rainGeometry.setDrawRange(0, activeRainCount * 2);
+    },
+    setShadowMapSize(size: number) {
+      scene.traverse((o) => {
+        if (o instanceof THREE.Light && o.castShadow)
+          o.shadow.mapSize.set(size, size);
+      });
+    },
     update(dt: number, time: number) {
-      for (let i = 0; i < rainCount; i++) {
+      for (let i = 0; i < activeRainCount; i++) {
         const p = rainData[i];
         p.y -= dt * p.speed;
         p.x -= dt * 0.9;

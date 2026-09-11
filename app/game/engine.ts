@@ -6,6 +6,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createEnvironment } from './environment';
 import { createWeapon } from './weapon';
 import { createEnemy } from './enemy';
+import { getGraphicsProfile, type GraphicsPreset } from './graphics';
 
 export type Snapshot = {
   mode: 'menu' | 'playing' | 'paused' | 'dead' | 'complete';
@@ -224,7 +225,7 @@ export class Game {
       powerPreference: 'high-performance',
       alpha: false,
     });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(1);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -353,11 +354,23 @@ export class Game {
     this.addActors();
     this.animate();
   }
-  configure(o: { muted: boolean; sensitivity: number; cinematic: boolean }) {
+  configure(o: {
+    graphics: GraphicsPreset;
+    muted: boolean;
+    sensitivity: number;
+    cinematic: boolean;
+  }) {
+    const profile = getGraphicsProfile(o.graphics);
     this.sound.setMute(o.muted);
     this.sensitivity = o.sensitivity;
     this.cinematic = o.cinematic;
-    this.bloom.enabled = o.cinematic;
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, profile.pixelRatio));
+    this.renderer.shadowMap.enabled = profile.shadows;
+    this.env.setShadowMapSize(profile.shadowMapSize);
+    this.bloom.enabled = o.cinematic && profile.bloomStrength > 0;
+    this.bloom.strength = o.cinematic ? profile.bloomStrength : 0;
+    this.env.setRainCount(profile.rainCount);
+    this.resize();
   }
   listen<K extends keyof WindowEventMap>(
     type: K,

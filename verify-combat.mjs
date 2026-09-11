@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import assert from 'node:assert/strict';
 const source=await fs.readFile('./app/game/engine.ts','utf8');
 const {outputText}=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}});
-await fs.writeFile('./.verify-engine.mjs',outputText.replaceAll("'./environment'","'./app/game/environment.ts'").replaceAll("'./weapon'","'./app/game/weapon.ts'").replaceAll("'./enemy'","'./app/game/enemy.ts'"));
+await fs.writeFile('./.verify-engine.mjs',outputText.replaceAll("'./environment'","'./app/game/environment.ts'").replaceAll("'./weapon'","'./app/game/weapon.ts'").replaceAll("'./enemy'","'./app/game/enemy.ts'").replaceAll("'./graphics'","'./app/game/graphics.ts'"));
 const {Game}=await import('./.verify-engine.mjs');
 globalThis.document={pointerLockElement:null};
 function fixture(){const g=Object.create(Game.prototype);Object.assign(g,{camera:new THREE.PerspectiveCamera(68,1,.05,200),ray:new THREE.Raycaster(),scene:new THREE.Scene(),actors:[],world:[],env:{colliders:[]},state:{mode:'playing',ammo:30,reserve:180,kills:0,total:9,health:100,extraction:0},keys:new Set(),velocity:new THREE.Vector3(),shotClock:0,reloadClock:0,recoil:0,yaw:0,pitch:0,elapsed:0,liveTime:10,lastDamage:0,feetY:0,vertical:0,stepClock:1,aiming:true,sprinting:false,firing:false,sound:new Proxy({},{get:()=>()=>{}}),weapon:{flash(){},muzzle:new THREE.Object3D()},extractionMesh:new THREE.Group(),spawnParticle(){},tracer(){},emit(){}});g.camera.position.set(0,1.7,0);g.camera.rotation.order='YXZ';g.ray.camera=g.camera;return g;}
