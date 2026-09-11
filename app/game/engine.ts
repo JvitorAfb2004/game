@@ -108,7 +108,14 @@ export class Game {
   lastMouse = { x: 0, y: 0 };
   liveTime = 0;
   target: Room | null = null;
-  notebookTarget: { x: number; y: number; z: number } | null = null;
+  notebookTarget: { x: number; y: number; z: number; roomId: string } | null = null;
+  remoteGroup = new THREE.Group();
+  remotes = new Map<string, THREE.Group>();
+  remoteTargets = new Map<string, { x: number; z: number; yaw: number }>();
+  onLocalMove: ((x: number, z: number, yaw: number) => void) | null = null;
+  onToggleLight: ((roomId: string, on: boolean) => void) | null = null;
+  netClock = 0;
+  desktopRoomId: string | null = null;
   state: Snapshot = {
     mode: 'menu',
     fps: 60,
@@ -138,6 +145,7 @@ export class Game {
     this.camera.rotation.order = 'YXZ';
     this.scene.add(this.camera);
     this.env = createEnvironment(THREE, this.scene);
+    this.scene.add(this.remoteGroup);
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.composer.addPass(new OutputPass());
@@ -204,8 +212,9 @@ export class Game {
     this.listen('keyup', (e) => this.keys.delete(e.code));
     this.listen('mousedown', (e) => {
       this.lastMouse = { x: e.clientX, y: e.clientY };
-      if (e.button === 0 && this.state.mode === 'playing' && this.notebookTarget)
-        this.enterDesktop();
+      if (e.button !== 0 || this.state.mode !== 'playing') return;
+      if (this.notebookTarget) this.enterDesktop();
+      else if (this.target) this.toggleTargetRoom();
     });
     this.listen('mousemove', (e) => {
       if (this.state.mode !== 'playing') return;
@@ -451,16 +460,99 @@ export class Game {
   toggleTargetRoom() {
     const r = this.target;
     if (!r) return;
-    r.on = !r.on;
-    r.light.visible = r.on;
-    (r.led.material as THREE.MeshStandardMaterial).emissiveIntensity = r.on
-      ? 1.6
-      : 0;
+    if (this.onToggleLight) this.onToggleLight(r.roomId, !r.on);
+    else this.applyLight(r.roomId, !r.on);
     this.sound.noise(0.05, 0.1, 900);
+  }
+  makeRemote(username: string) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 1.1, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0x35506b, roughness: 0.7 }),
+    );
+    body.position.y = 0.9;
+    const head = new THREE.Mesh(
+      new THREE.BoxGeometry(0.28, 0.28, 0.28),
+      new THREE.MeshStandardMaterial({ color: 0xd9b48c, roughness: 0.6 }),
+    );
+    head.position.y = 1.62;
+    g.add(body, head);
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#0b0f12';
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.fillStyle = '#7fd6c2';
+    ctx.font = '32px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(username.slice(0, 12), 128, 42);
+    const tex = new THREE.CanvasTexture(canvas);
+    const tag = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.1, 0.28),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true }),
+    );
+    tag.position.y = 2.05;
+    g.add(tag);
+    g.userData.tag = tag;
+    return g;
+  }
+  setRemotePlayers(
+    players: { id: string; username: string; x: number; z: number; yaw: number }[],
+  ) {
+    const seen = new Set<string>();
+    for (const p of players) {
+      seen.add(p.id);
+      this.remoteTargets.set(p.id, { x: p.x, z: p.z, yaw: p.yaw });
+      if (!this.remotes.has(p.id)) {
+        const g = this.makeRemote(p.username);
+        this.remotes.set(p.id, g);
+        this.remoteGroup.add(g);
+        g.position.set(p.x, 0, p.z);
+      }
+    }
+    for (const [id, g] of this.remotes)
+      if (!seen.has(id)) {
+        this.remoteGroup.remove(g);
+        this.remotes.delete(id);
+        this.remoteTargets.delete(id);
+      }
+  }
+  updateRemotes(dt: number) {
+    const k = 1 - Math.exp(-dt * 10);
+    for (const [id, g] of this.remotes) {
+      const t = this.remoteTargets.get(id);
+      if (!t) continue;
+      g.position.x += (t.x - g.position.x) * k;
+      g.position.z += (t.z - g.position.z) * k;
+      const tag = g.userData.tag as THREE.Mesh | undefined;
+      if (tag) tag.quaternion.copy(this.camera.quaternion);
+    }
+  }
+  spawnAt(x: number, z: number, yaw: number) {
+    this.camera.position.set(x, 1.7, z);
+    this.yaw = yaw;
+    this.pitch = 0;
+  }
+  applyLight(roomId: string, on: boolean) {
+    const r = this.env.rooms.find((room) => room.roomId === roomId);
+    if (!r) return;
+    r.on = on;
+    r.light.visible = on;
+    (r.led.material as THREE.MeshStandardMaterial).emissiveIntensity = on ? 1.6 : 0;
+  }
+  applyPlaque(roomId: string, text: string) {
+    const plaques = (
+      this.env as unknown as {
+        plaques?: { roomId: string; setText(t: string): void }[];
+      }
+    ).plaques;
+    plaques?.find((p) => p.roomId === roomId)?.setText(text);
   }
   enterDesktop() {
     this.state.mode = 'desktop';
     this.state.desktop = true;
+    this.desktopRoomId = this.notebookTarget?.roomId ?? null;
     this.keys.clear();
     if (document.pointerLockElement) document.exitPointerLock();
     this.emit();
@@ -469,6 +561,7 @@ export class Game {
     if (this.state.mode !== 'desktop') return;
     this.state.mode = 'playing';
     this.state.desktop = false;
+    this.desktopRoomId = null;
     this.keys.clear();
     this.renderer.domElement.focus();
     try {
@@ -505,6 +598,12 @@ export class Game {
     this.env.update(dt, this.elapsed);
     this.updateDoors(dt);
     this.updateRooms();
+    this.updateRemotes(dt);
+    this.netClock -= dt;
+    if (this.state.mode === 'playing' && this.netClock <= 0) {
+      this.netClock = 1 / 15;
+      this.onLocalMove?.(this.camera.position.x, this.camera.position.z, this.yaw);
+    }
     let moving = 0;
     if (this.state.mode === 'playing') {
       this.liveTime += dt;

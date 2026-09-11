@@ -46,6 +46,10 @@ export default function Home() {
   const [authError, setAuthError] = useState('');
   const [session, setSession] = useState<{ token: string; username: string } | null>(null);
   const net = useRef<import('./game/net').Net | null>(null);
+  const [players, setPlayers] = useState<import('./game/net').NetPlayer[]>([]);
+  const [netOnline, setNetOnline] = useState(true);
+  const [welcome, setWelcome] = useState<import('./game/net').Welcome | null>(null);
+  const [desktopRoom, setDesktopRoom] = useState<string | null>(null);
   useEffect(() => {
     let disposed = false;
     void import('./game/engine')
@@ -78,6 +82,40 @@ export default function Home() {
     if (token && name) setSession({ token, username: name });
   }, []);
   useEffect(() => {
+    if (!session) return;
+    let disposed = false;
+    void import('./game/net').then(({ Net }) => {
+      if (disposed) return;
+      const n = new Net();
+      net.current = n;
+      n.onStatus = (online) => setNetOnline(online);
+      n.onPlayers = setPlayers;
+      n.onWelcome = (w) => {
+        setWelcome(w);
+        engine.current?.setRemotePlayers(w.players);
+        for (const [roomId, text] of Object.entries(w.plaques))
+          engine.current?.applyPlaque(roomId, text);
+        for (const [roomId, on] of Object.entries(w.lights))
+          engine.current?.applyLight(roomId, on);
+      };
+      n.onPlaque = (roomId, text) => engine.current?.applyPlaque(roomId, text);
+      n.onLight = (roomId, on) => engine.current?.applyLight(roomId, on);
+      n.connect(session.token);
+      if (engine.current) {
+        engine.current.onLocalMove = (x, z, yaw) => n.move(x, z, yaw);
+        engine.current.onToggleLight = (roomId, on) => n.light(roomId, on);
+      }
+    });
+    return () => {
+      disposed = true;
+      net.current?.close();
+      net.current = null;
+    };
+  }, [session, ready]);
+  useEffect(() => {
+    setDesktopRoom(state.desktop ? (engine.current?.desktopRoomId ?? null) : null);
+  }, [state.desktop]);
+  useEffect(() => {
     engine.current?.configure({ muted, sensitivity, graphics });
   }, [muted, sensitivity, graphics, ready]);
   useEffect(() => {
@@ -101,6 +139,8 @@ export default function Home() {
   const active = state.mode === 'playing';
   const start = () => {
     setSettings(false);
+    const s = welcome?.spawn;
+    if (s) engine.current?.spawnAt(s.x, s.z, s.yaw);
     engine.current?.start();
   };
   const toggleFull = () => {
@@ -179,6 +219,22 @@ export default function Home() {
       {active && <div className="reticle" aria-hidden="true" />}
       {active && state.prompt && (
         <output className="interact-toast">{state.prompt}</output>
+      )}
+      {active && (
+        <div className="hud-players" data-testid="hud-players">
+          <span className="hud-dot" /> {players.length} NA SALA
+          <ul>
+            {players.map((p) => (
+              <li key={p.id}>{p.username}</li>
+            ))}
+          </ul>
+          {!netOnline && <em>modo solo</em>}
+        </div>
+      )}
+      {active && (
+        <div className="hud-fps" data-testid="hud-fps">
+          {state.fps} FPS
+        </div>
       )}
       {state.desktop && (
         <dialog className="xp" open aria-label="Área de trabalho">

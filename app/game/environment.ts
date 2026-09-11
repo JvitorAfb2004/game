@@ -21,6 +21,7 @@ export function createEnvironment(
     half: number;
   }[] = [];
   const rooms: {
+    roomId: string;
     light: ThreeType.PointLight;
     led: ThreeType.Mesh;
     on: boolean;
@@ -29,7 +30,7 @@ export function createEnvironment(
     z: number;
     switch: { x: number; y: number; z: number };
   }[] = [];
-  const notebooks: { x: number; y: number; z: number }[] = [];
+  const notebooks: { roomId: string; x: number; y: number; z: number }[] = [];
 
   const corridorWidth = 3;
   const roomDepth = 5.5;
@@ -38,6 +39,7 @@ export function createEnvironment(
   const panelH = 2.4;
   const doorHalf = 0.6;
   const roomCenters = [9, -4, -17];
+  const ROOM_IDS = ['W1', 'W2', 'W3', 'E1', 'E2', 'E3'];
 
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x9aa0a0,
@@ -157,7 +159,9 @@ export function createEnvironment(
   const xFar = halfCorridor + roomDepth;
 
   for (const side of [-1, 1]) {
-    for (const center of roomCenters) {
+    for (let ri = 0; ri < roomCenters.length; ri++) {
+      const center = roomCenters[ri];
+      const roomId = ROOM_IDS[side === 1 ? ri + 3 : ri];
       const z0 = center - roomWidth / 2;
       const z1 = center + roomWidth / 2;
       const xCenter = side * (halfCorridor + roomDepth / 2);
@@ -230,6 +234,7 @@ export function createEnvironment(
       scene.add(led);
 
       rooms.push({
+        roomId,
         light: roomLight,
         led,
         on: true,
@@ -249,7 +254,7 @@ export function createEnvironment(
       box(frameMat, deskX - side * 0.05, 0.8, center, 0.3, 0.04, 0.42);
       box(ledMat, deskX + side * 0.1, 0.99, center, 0.03, 0.34, 0.42);
       collider(deskX, center, 1.0, 1.7);
-      notebooks.push({ x: deskX + side * 0.1, y: 0.99, z: center });
+      notebooks.push({ roomId, x: deskX + side * 0.1, y: 0.99, z: center });
     }
     // Corridor side wall segments fill the gaps between rooms.
     for (let i = 0; i < roomCenters.length - 1; i++) {

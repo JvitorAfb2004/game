@@ -60,6 +60,17 @@ try {
   );
   out.modeAfterStart = 'playing';
 
+  const hudPlayers = await page
+    .locator('[data-testid="hud-players"]')
+    .isVisible()
+    .catch(() => false);
+  const hudFps = await page
+    .locator('[data-testid="hud-fps"]')
+    .textContent()
+    .catch(() => null);
+  out.hud = { hudPlayers, hudFps };
+  if (!hudPlayers || !/FPS/.test(hudFps ?? '')) fail('hud-missing', out.hud);
+
   // FPS while walking forward for 5s.
   await page.keyboard.down('w');
   const fps = await page.evaluate(
