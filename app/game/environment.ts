@@ -37,7 +37,7 @@ export function createEnvironment(
   const ceilingHeight = 3;
   const panelH = 2.4;
   const doorHalf = 0.6;
-  const roomCenters = [10, 1.5, -7, -15.5, -24, -32.5];
+  const roomCenters = [9, -4, -17];
 
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x9aa0a0,
@@ -282,7 +282,7 @@ export function createEnvironment(
 
   // Corridor ceiling lamps, each with its light directly beneath it.
   const corridorLights: { light: ThreeType.PointLight; z: number }[] = [];
-  for (const z of [8, -6, -20, -34]) {
+  for (const z of [7, -4, -15]) {
     box(ledMat, 0, ceilingHeight - 0.03, z, 1.4, 0.05, 1.4);
     const p = new THREE.PointLight(0xfff2e0, 7, 13, 2);
     p.position.set(0, ceilingHeight - 0.16, z);

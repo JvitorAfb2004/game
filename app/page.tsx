@@ -216,11 +216,11 @@ export default function Home() {
             <span>04</span>
             <div>
               MERIDIAN CORPORATE TOWER
-              <small>SETOR CENTRAL &nbsp; / &nbsp; 12 SALAS</small>
+              <small>SETOR CENTRAL &nbsp; / &nbsp; 6 SALAS</small>
             </div>
           </div>
           <p className="mission-description">
-            Caminhe pelo corredor central e visite os doze setores. Cada sala
+            Caminhe pelo corredor central e visite os seis setores. Cada sala
             tem um colega de trabalho parado.
           </p>
           <button
