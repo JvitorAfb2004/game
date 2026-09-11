@@ -191,8 +191,8 @@ export function createEnvironment(
       box(frameMat, xFace, upperY, center, 0.12, upperH, doorHalf * 2);
       box(frameMat, xFace, panelH / 2, center - doorHalf, 0.12, panelH, 0.08);
       box(frameMat, xFace, panelH / 2, center + doorHalf, 0.12, panelH, 0.08);
-      box(frameMat, xFace, panelH / 2, z0 + 0.04, 0.12, panelH, 0.08);
-      box(frameMat, xFace, panelH / 2, z1 - 0.04, 0.12, panelH, 0.08);
+      box(frameMat, xFace, panelH / 2, z0 + 0.05, 0.18, panelH, 0.18);
+      box(frameMat, xFace, panelH / 2, z1 - 0.05, 0.18, panelH, 0.18);
 
       // Wooden door with a handle.
       const pivot = new THREE.Group();
