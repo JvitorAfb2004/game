@@ -3,8 +3,16 @@ const BASE = `http://${HOST}:3001`;
 const TOKEN_KEY = 'meridian_token';
 const USER_KEY = 'meridian_user';
 
+async function doFetch(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new Error('Sem conexão com o servidor');
+  }
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await doFetch(`${BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify(body),
@@ -31,7 +39,7 @@ export const api = {
     return data;
   },
   async authed<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await doFetch(`${BASE}${path}`, {
       ...init,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',

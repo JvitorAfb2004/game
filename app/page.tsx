@@ -18,6 +18,7 @@ import type { Game, Snapshot } from './game/engine';
 import type { GraphicsPreset } from './game/graphics';
 import { api } from './api';
 import { Notepad, Calculator, PlaqueEditor } from './game/desktop';
+import { XPWindow, useWindows, XP_TITLES } from './game/xp';
 
 const initial: Snapshot = {
   mode: 'menu',
@@ -58,8 +59,8 @@ export default function Home() {
   const [players, setPlayers] = useState<import('./game/net').NetPlayer[]>([]);
   const [netOnline, setNetOnline] = useState(true);
   const [welcome, setWelcome] = useState<import('./game/net').Welcome | null>(null);
-  const [xpApp, setXpApp] = useState<'home' | 'notepad' | 'calc' | 'plaque'>('home');
   const [plaquesText, setPlaquesText] = useState<Record<string, string>>({});
+  const { windows, open, close, minimize, focus, move } = useWindows();
   const applyPlayers = useCallback(
     (list: import('./game/net').NetPlayer[]) => {
       const others = list.filter((p) => p.id !== selfId.current);
@@ -254,31 +255,40 @@ export default function Home() {
       {state.desktop && (
         <dialog className="xp" open aria-label="Área de trabalho">
           <div className="xp-icons">
-            <button type="button" onClick={() => setXpApp('notepad')}>
+            <button type="button" onClick={() => open('notepad')}>
               <span aria-hidden="true">📝</span>Bloco de notas
             </button>
-            <button type="button" onClick={() => setXpApp('calc')}>
+            <button type="button" onClick={() => open('calc')}>
               <span aria-hidden="true">🧮</span>Calculadora
             </button>
-            <button type="button" onClick={() => setXpApp('plaque')}>
+            <button type="button" onClick={() => open('plaque')}>
               <span aria-hidden="true">🪧</span>Placa da sala
             </button>
-            <button type="button" onClick={() => setXpApp('home')}>
-              <span aria-hidden="true">🖥</span>Área de trabalho
-            </button>
           </div>
-          {xpApp === 'notepad' && state.desktopRoom && (
-            <Notepad computerId={state.desktopRoom} />
-          )}
-          {xpApp === 'calc' && <Calculator />}
-          {xpApp === 'plaque' && state.desktopRoom && (
-            <PlaqueEditor
-              key={plaquesText[state.desktopRoom] ?? ''}
-              roomId={state.desktopRoom}
-              initial={plaquesText[state.desktopRoom] ?? ''}
-              onSave={(text) => net.current?.plaque(state.desktopRoom!, text)}
-            />
-          )}
+          {windows.map((w) => (
+            <XPWindow
+              key={w.id}
+              win={w}
+              title={XP_TITLES[w.app]}
+              onFocus={focus}
+              onClose={close}
+              onMinimize={minimize}
+              onMove={move}
+            >
+              {w.app === 'notepad' && state.desktopRoom && (
+                <Notepad computerId={state.desktopRoom} />
+              )}
+              {w.app === 'calc' && <Calculator />}
+              {w.app === 'plaque' && state.desktopRoom && (
+                <PlaqueEditor
+                  key={plaquesText[state.desktopRoom] ?? ''}
+                  roomId={state.desktopRoom}
+                  initial={plaquesText[state.desktopRoom] ?? ''}
+                  onSave={(text) => net.current?.plaque(state.desktopRoom!, text)}
+                />
+              )}
+            </XPWindow>
+          ))}
           <div className="xp-taskbar">
             <button
               type="button"
@@ -289,13 +299,10 @@ export default function Home() {
             </button>
             {startOpen && (
               <div className="xp-menu">
-                <button type="button">Programas</button>
-                <button type="button">Documentos</button>
                 <button
                   type="button"
                   onClick={() => {
                     setStartOpen(false);
-                    setXpApp('home');
                     engine.current?.exitDesktop();
                   }}
                 >
@@ -303,6 +310,18 @@ export default function Home() {
                 </button>
               </div>
             )}
+            <div className="xp-tasks">
+              {windows.map((w) => (
+                <button
+                  type="button"
+                  key={w.id}
+                  className={w.minimized ? 'xp-task minimized' : 'xp-task'}
+                  onClick={() => focus(w.id)}
+                >
+                  {XP_TITLES[w.app]}
+                </button>
+              ))}
+            </div>
             <div className="xp-clock">{clock}</div>
           </div>
           <div className="xp-hint">ESC para voltar ao jogo</div>
