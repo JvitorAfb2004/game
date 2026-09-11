@@ -4,7 +4,13 @@ import { api } from '../api';
 
 type FileRow = { id: string; computerId: string; name: string; content: string };
 
-export function Notepad({ computerId }: { computerId: string }) {
+export function Notepad({
+  computerId,
+  onChanged,
+}: {
+  computerId: string;
+  onChanged?: () => void;
+}) {
   const [files, setFiles] = useState<FileRow[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -71,6 +77,7 @@ export function Notepad({ computerId }: { computerId: string }) {
       setCreating(false);
       setNewName('');
       setStatus('');
+      onChanged?.();
     } catch (e) {
       setStatus(e instanceof Error ? e.message : 'erro ao criar');
     }
@@ -100,6 +107,7 @@ export function Notepad({ computerId }: { computerId: string }) {
       setDraft('');
     }
     void load();
+    onChanged?.();
   };
   return (
     <div className="xp-app">

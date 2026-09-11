@@ -32,5 +32,12 @@ export async function migrate() {
       room_id text PRIMARY KEY,
       plaque_text text NOT NULL DEFAULT ''
     );
+    ALTER TABLE computer_files ADD COLUMN IF NOT EXISTS pos_x real NOT NULL DEFAULT 0;
+    ALTER TABLE computer_files ADD COLUMN IF NOT EXISTS pos_y real NOT NULL DEFAULT 0;
+    CREATE TABLE IF NOT EXISTS computer_state (
+      computer_id text PRIMARY KEY,
+      state jsonb NOT NULL DEFAULT '{}',
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
   `);
 }

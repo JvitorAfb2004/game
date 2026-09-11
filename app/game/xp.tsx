@@ -11,6 +11,65 @@ export type Win = {
   z: number;
 };
 
+export type DesktopFile = {
+  id: string;
+  name: string;
+  posX: number;
+  posY: number;
+};
+
+export function DesktopIcon({
+  file,
+  index,
+  onOpen,
+  onMove,
+}: {
+  file: DesktopFile;
+  index: number;
+  onOpen: () => void;
+  onMove: (id: string, x: number, y: number) => void;
+}) {
+  const initial =
+    file.posX || file.posY
+      ? { x: file.posX, y: file.posY }
+      : { x: 156, y: 24 + index * 74 };
+  const [dragged, setDragged] = useState<{ x: number; y: number } | null>(null);
+  const pos = dragged ?? initial;
+  const drag = useRef<{ dx: number; dy: number } | null>(null);
+  const last = useRef<{ x: number; y: number } | null>(null);
+  return (
+    <button
+      type="button"
+      className="xp-file-icon"
+      style={{ left: pos.x, top: pos.y }}
+      onPointerDown={(e) => {
+        drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!drag.current) return;
+        const p = {
+          x: Math.max(0, e.clientX - drag.current.dx),
+          y: Math.max(0, e.clientY - drag.current.dy),
+        };
+        last.current = p;
+        setDragged(p);
+      }}
+      onPointerUp={() => {
+        if (!drag.current) return;
+        drag.current = null;
+        if (last.current) onMove(file.id, last.current.x, last.current.y);
+        last.current = null;
+        setDragged(null);
+      }}
+      onDoubleClick={onOpen}
+    >
+      <span aria-hidden="true">📄</span>
+      {file.name}
+    </button>
+  );
+}
+
 export const XP_TITLES: Record<XpApp, string> = {
   notepad: 'Bloco de notas',
   calc: 'Calculadora',

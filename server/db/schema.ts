@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, real, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, real, timestamp, jsonb } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -23,6 +23,14 @@ export const computerFiles = pgTable('computer_files', {
   computerId: text('computer_id').notNull(),
   name: text('name').notNull(),
   content: text('content').notNull().default(''),
+  posX: real('pos_x').notNull().default(0),
+  posY: real('pos_y').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const computerState = pgTable('computer_state', {
+  computerId: text('computer_id').primaryKey(),
+  state: jsonb('state').notNull().default({}),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

@@ -18,7 +18,14 @@ import type { Game, Snapshot } from './game/engine';
 import type { GraphicsPreset } from './game/graphics';
 import { api } from './api';
 import { Notepad, Calculator, PlaqueEditor } from './game/desktop';
-import { XPWindow, useWindows, XP_TITLES } from './game/xp';
+import {
+  XPWindow,
+  useWindows,
+  XP_TITLES,
+  DesktopIcon,
+  type DesktopFile,
+  type Win,
+} from './game/xp';
 
 const initial: Snapshot = {
   mode: 'menu',
@@ -60,7 +67,10 @@ export default function Home() {
   const [netOnline, setNetOnline] = useState(true);
   const [welcome, setWelcome] = useState<import('./game/net').Welcome | null>(null);
   const [plaquesText, setPlaquesText] = useState<Record<string, string>>({});
-  const { windows, open, close, minimize, focus, move } = useWindows();
+  const { windows, open, close, minimize, focus, move, hydrate } = useWindows();
+  const [desktopFiles, setDesktopFiles] = useState<DesktopFile[]>([]);
+  const [filesTick, setFilesTick] = useState(0);
+  const hydratedFor = useRef<string | null>(null);
   const applyPlayers = useCallback(
     (list: import('./game/net').NetPlayer[]) => {
       const others = list.filter((p) => p.id !== selfId.current);
@@ -139,6 +149,66 @@ export default function Home() {
     document.addEventListener('fullscreenchange', f);
     return () => document.removeEventListener('fullscreenchange', f);
   }, []);
+  useEffect(() => {
+    if (!state.desktop || !state.desktopRoom) return;
+    let active = true;
+    api
+      .authed<{ files: DesktopFile[] }>(`/files?computer=${state.desktopRoom}`)
+      .then(({ files }) => {
+        if (active)
+          setDesktopFiles(
+            files.map((f) => ({ id: f.id, name: f.name, posX: f.posX, posY: f.posY })),
+          );
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [state.desktop, state.desktopRoom, filesTick]);
+  useEffect(() => {
+    const room = state.desktopRoom;
+    if (!state.desktop || !room) {
+      hydratedFor.current = null;
+      return;
+    }
+    let active = true;
+    api
+      .authed<{ state: { windows?: Win[] } }>(`/computers/${room}/state`)
+      .then(({ state: s }) => {
+        if (active && Array.isArray(s?.windows)) hydrate(s.windows);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) hydratedFor.current = room;
+      });
+    return () => {
+      active = false;
+    };
+  }, [state.desktop, state.desktopRoom, hydrate]);
+  useEffect(() => {
+    const room = state.desktopRoom;
+    if (!state.desktop || !room || hydratedFor.current !== room) return;
+    const t = window.setTimeout(() => {
+      void api
+        .authed(`/computers/${room}/state`, {
+          method: 'PUT',
+          body: JSON.stringify({ state: { windows } }),
+        })
+        .catch(() => {});
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [windows, state.desktop, state.desktopRoom]);
+  const moveIcon = (id: string, x: number, y: number) => {
+    setDesktopFiles((fs) =>
+      fs.map((f) => (f.id === id ? { ...f, posX: x, posY: y } : f)),
+    );
+    void api
+      .authed(`/files/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ posX: x, posY: y }),
+      })
+      .catch(() => {});
+  };
   useEffect(() => {
     if (!state.desktop) return;
     const tick = () =>
@@ -265,6 +335,17 @@ export default function Home() {
               <span aria-hidden="true">🪧</span>Placa da sala
             </button>
           </div>
+          <div className="xp-desktop-files">
+            {desktopFiles.map((f, i) => (
+              <DesktopIcon
+                key={f.id}
+                file={f}
+                index={i}
+                onOpen={() => open('notepad')}
+                onMove={moveIcon}
+              />
+            ))}
+          </div>
           {windows.map((w) => (
             <XPWindow
               key={w.id}
@@ -276,7 +357,10 @@ export default function Home() {
               onMove={move}
             >
               {w.app === 'notepad' && state.desktopRoom && (
-                <Notepad computerId={state.desktopRoom} />
+                <Notepad
+                  computerId={state.desktopRoom}
+                  onChanged={() => setFilesTick((t) => t + 1)}
+                />
               )}
               {w.app === 'calc' && <Calculator />}
               {w.app === 'plaque' && state.desktopRoom && (

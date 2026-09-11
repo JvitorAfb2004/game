@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.ts';
-import { computerFiles } from '../db/schema.ts';
+import { computerFiles, computerState } from '../db/schema.ts';
 import { verifyToken } from '../auth/tokens.ts';
 
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
@@ -57,6 +57,8 @@ export async function registerFileRoutes(app: FastifyInstance) {
       .object({
         name: z.string().min(1).max(32).optional(),
         content: z.string().max(20000).optional(),
+        posX: z.number().optional(),
+        posY: z.number().optional(),
       })
       .safeParse(req.body);
     if (!id.success || !body.success)
@@ -75,6 +77,31 @@ export async function registerFileRoutes(app: FastifyInstance) {
     const id = z.uuid().safeParse((req.params as { id: string }).id);
     if (!id.success) return reply.code(400).send({ error: 'id inválido' });
     await db.delete(computerFiles).where(eq(computerFiles.id, id.data));
+    return { ok: true };
+  });
+
+  app.get('/computers/:id/state', { preHandler: requireAuth }, async (req, reply) => {
+    const id = z.string().max(8).safeParse((req.params as { id: string }).id);
+    if (!id.success) return reply.code(400).send({ error: 'id inválido' });
+    const [row] = await db
+      .select()
+      .from(computerState)
+      .where(eq(computerState.computerId, id.data));
+    return { state: row?.state ?? {} };
+  });
+
+  app.put('/computers/:id/state', { preHandler: requireAuth }, async (req, reply) => {
+    const id = z.string().max(8).safeParse((req.params as { id: string }).id);
+    const body = z.object({ state: z.record(z.string(), z.unknown()) }).safeParse(req.body);
+    if (!id.success || !body.success)
+      return reply.code(400).send({ error: 'dados inválidos' });
+    await db
+      .insert(computerState)
+      .values({ computerId: id.data, state: body.data.state })
+      .onConflictDoUpdate({
+        target: computerState.computerId,
+        set: { state: body.data.state, updatedAt: new Date() },
+      });
     return { ok: true };
   });
 }
