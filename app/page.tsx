@@ -22,6 +22,7 @@ const initial: Snapshot = {
   fps: 60,
   player: { x: 0, z: 13 },
   prompt: '',
+  desktop: false,
 };
 
 export default function Home() {

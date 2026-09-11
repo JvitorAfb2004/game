@@ -6,10 +6,11 @@ import { createEnvironment } from './environment';
 import { getGraphicsProfile, type GraphicsPreset } from './graphics';
 
 export type Snapshot = {
-  mode: 'menu' | 'playing' | 'paused';
+  mode: 'menu' | 'playing' | 'paused' | 'desktop';
   fps: number;
   player: { x: number; z: number };
   prompt: string;
+  desktop: boolean;
 };
 
 type Room = ReturnType<typeof createEnvironment>['rooms'][number];
@@ -107,11 +108,13 @@ export class Game {
   lastMouse = { x: 0, y: 0 };
   liveTime = 0;
   target: Room | null = null;
+  notebookTarget: { x: number; y: number; z: number } | null = null;
   state: Snapshot = {
     mode: 'menu',
     fps: 60,
     player: { x: 0, z: 13 },
     prompt: '',
+    desktop: false,
   };
   cleanup: (() => void)[] = [];
   constructor(host: HTMLDivElement, onState: (s: Snapshot) => void) {
@@ -177,6 +180,10 @@ export class Game {
       )
         e.preventDefault();
       this.keys.add(e.code);
+      if (e.code === 'Escape' && this.state.mode === 'desktop') {
+        this.exitDesktop();
+        return;
+      }
       if (e.code === 'KeyE' && this.state.mode === 'playing')
         this.toggleTargetRoom();
       if (e.code === 'Escape') this.pause();
@@ -192,6 +199,8 @@ export class Game {
     this.listen('keyup', (e) => this.keys.delete(e.code));
     this.listen('mousedown', (e) => {
       this.lastMouse = { x: e.clientX, y: e.clientY };
+      if (e.button === 0 && this.state.mode === 'playing' && this.notebookTarget)
+        this.enterDesktop();
     });
     this.listen('mousemove', (e) => {
       if (this.state.mode !== 'playing') return;
@@ -256,6 +265,7 @@ export class Game {
     } catch {
       this.pointerFallback = true;
     }
+    this.state.desktop = false;
     this.emit();
   }
   pause() {
@@ -283,6 +293,7 @@ export class Game {
       fps: this.state.fps,
       player: { x: 0, z: 13 },
       prompt: '',
+      desktop: false,
     };
     this.emit();
   }
@@ -417,6 +428,19 @@ export class Game {
     }
     for (const c of this.env.corridorLights)
       c.light.visible = Math.abs(this.camera.position.z - c.z) < 10;
+    this.notebookTarget = null;
+    for (const n of this.env.notebooks) {
+      const toNb = new THREE.Vector3(
+        n.x - this.camera.position.x,
+        n.y - this.camera.position.y,
+        n.z - this.camera.position.z,
+      );
+      const d = toNb.length();
+      if (d < 3 && toNb.normalize().dot(forward) > 0.97) {
+        this.notebookTarget = n;
+        prompt = 'CLIQUE PARA ACESSAR O NOTEBOOK';
+      }
+    }
     this.state.prompt = prompt;
   }
   toggleTargetRoom() {
@@ -429,6 +453,20 @@ export class Game {
       : 0;
     this.sound.noise(0.05, 0.1, 900);
   }
+  enterDesktop() {
+    this.state.mode = 'desktop';
+    this.state.desktop = true;
+    this.keys.clear();
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.emit();
+  }
+  exitDesktop() {
+    if (this.state.mode !== 'desktop') return;
+    this.state.mode = 'paused';
+    this.state.desktop = false;
+    this.keys.clear();
+    this.emit();
+  }
   emit() {
     this.host.dataset.fps = String(this.state.fps);
     this.host.dataset.position = `${this.camera.position.x.toFixed(2)},${this.camera.position.z.toFixed(2)}`;
@@ -438,6 +476,7 @@ export class Game {
       fps: this.state.fps,
       player: { x: this.camera.position.x, z: this.camera.position.z },
       prompt: this.state.prompt,
+      desktop: this.state.desktop,
     });
   }
   animate = () => {
