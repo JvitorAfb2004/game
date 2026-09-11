@@ -133,6 +133,7 @@ export class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.info.autoReset = false;
     this.renderer.domElement.tabIndex = 0;
     host.appendChild(this.renderer.domElement);
     this.camera.position.set(0, 1.7, 13);
@@ -460,6 +461,7 @@ export class Game {
     if (this.disposed) return;
     this.frame = requestAnimationFrame(this.animate);
     const dt = Math.min(this.clock.getDelta(), 0.05);
+    this.renderer.info.reset();
     this.elapsed += dt;
     const frameMs = dt * 1000;
     const t0 = performance.now();
@@ -555,6 +557,9 @@ export class Game {
   }
   auditAssets() {
     const tex = new Map<string, { w: number; h: number; n: number }>();
+    const uniqMats = new Set<string>();
+    const uniqTex = new Set<string>();
+    let maxTex = 0;
     let materials = 0;
     let transparent = 0;
     let shadowCasters = 0;
@@ -578,13 +583,16 @@ export class Game {
       ) as THREE.Material[];
       for (const m of list) {
         materials++;
+        uniqMats.add(m.uuid);
         if ((m as THREE.MeshStandardMaterial).transparent) transparent++;
         for (const v of Object.values(m)) {
           const t = v as THREE.Texture | null;
           if (t && (t as THREE.Texture).isTexture) {
+            uniqTex.add((t as THREE.Texture).uuid);
             const img = (t as THREE.Texture).image as
               | { width?: number; height?: number }
               | undefined;
+            maxTex = Math.max(maxTex, (img?.width ?? 0) * (img?.height ?? 0));
             const key = `${img?.width ?? 0}x${img?.height ?? 0}`;
             const e = tex.get(key) ?? { w: img?.width ?? 0, h: img?.height ?? 0, n: 0 };
             e.n++;
@@ -599,7 +607,7 @@ export class Game {
       .slice(0, 10)
       .map((g) => ({ meshes: g.n, trisPorMesh: g.tris, custo: g.n * g.tris }));
     console.info(
-      `[perf assets] materiais ${materials} (transparentes ${transparent}) | shadowCasters ${shadowCasters} | texturas ${[...tex.entries()].map(([k, v]) => `${k}x${v.n}`).join(', ') || 'nenhuma'}`,
+      `[perf assets] slots mesh-material ${materials} (=draw calls) | materiais únicos ${uniqMats.size} (transparentes ${transparent}) | shadowCasters ${shadowCasters} | texturas únicas ${uniqTex.size} (maior ${maxTex}px) | usos ${[...tex.entries()].map(([k, v]) => `${k}x${v.n}`).join(', ') || 'nenhuma'}`,
     );
     if (repeats.length) console.table(repeats);
     else console.info('[perf assets] sem repetição sem-instanciar no top: ok');
