@@ -188,6 +188,8 @@ export function createEnvironment(
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(0, -0.025, -22);
   ground.receiveShadow = true;
+  ground.matrixAutoUpdate = false;
+  ground.updateMatrix();
   scene.add(ground);
 
   scene.background = new THREE.Color(0x102538);
@@ -211,6 +213,8 @@ export function createEnvironment(
   );
   skyDome.position.set(0, 0, -18);
   skyDome.renderOrder = -100;
+  skyDome.matrixAutoUpdate = false;
+  skyDome.updateMatrix();
   scene.add(skyDome);
 
   const skyC = canvas(1024, 512),
@@ -1124,6 +1128,7 @@ export function createEnvironment(
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.computeBoundingSphere();
+      mesh.matrixAutoUpdate = false;
       scene.add(mesh);
     }
   return {

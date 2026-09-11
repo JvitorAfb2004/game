@@ -166,6 +166,8 @@ export class Game {
   sound = new Soundscape();
   actors: Actor[] = [];
   particles: Particle[] = [];
+  particlePool: THREE.Mesh[] = [];
+  particleGeometry = new THREE.BoxGeometry(0.015, 0.015, 0.015);
   world: THREE.Object3D[] = [];
   keys = new Set<string>();
   ray = new THREE.Raycaster();
@@ -685,14 +687,20 @@ export class Game {
     color: number,
     velocity: THREE.Vector3,
     life: number,
-    size: number,
+    _size: number,
     gravity = 9,
   ) {
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(size, size, size),
-      new THREE.MeshBasicMaterial({ color, transparent: true }),
-    );
+    let mesh = this.particlePool.pop();
+    if (!mesh) {
+      mesh = new THREE.Mesh(
+        this.particleGeometry,
+        new THREE.MeshBasicMaterial({ transparent: true }),
+      );
+    }
+    (mesh.material as THREE.MeshBasicMaterial).color.setHex(color);
+    (mesh.material as THREE.MeshBasicMaterial).opacity = 1;
     mesh.position.copy(position);
+    mesh.visible = true;
     this.scene.add(mesh);
     this.particles.push({
       mesh,
@@ -1109,8 +1117,8 @@ export class Game {
       );
       if (p.life <= 0) {
         this.scene.remove(p.mesh);
-        p.mesh.geometry.dispose();
-        (p.mesh.material as THREE.Material).dispose();
+        p.mesh.visible = false;
+        this.particlePool.push(p.mesh);
         this.particles.splice(i, 1);
       }
     }
