@@ -49,8 +49,8 @@ for (const n of env.notebooks)
   assert(n.y > 0.8 && n.y < 1.2, 'notebook screen at desk height');
 for (const p of env.spawnPoints) {
   const side = Math.sign(p.x);
-  assert(blocked(side * 5.8, p.z), `desk sits near the back wall ${p.x},${p.z}`);
-  assert(!blocked(side * 4.25, p.z), `room center is clear ${p.x},${p.z}`);
+  assert(blocked(side * 5.0, p.z), `desk sits near the back wall ${p.x},${p.z}`);
+  assert(!blocked(side * 4.1, p.z), `room center is clear ${p.x},${p.z}`);
 }
 console.log(
   JSON.stringify(

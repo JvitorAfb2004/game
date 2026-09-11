@@ -9,6 +9,7 @@ export type Win = {
   y: number;
   minimized: boolean;
   z: number;
+  arg?: string;
 };
 
 export type DesktopFile = {
@@ -81,7 +82,7 @@ let seq = 0;
 export function useWindows() {
   const [windows, setWindows] = useState<Win[]>([]);
   const zRef = useRef(1);
-  const open = useCallback((app: XpApp) => {
+  const open = useCallback((app: XpApp, arg?: string) => {
     setWindows((ws) => {
       const offset = (ws.length % 5) * 24;
       return [
@@ -89,6 +90,7 @@ export function useWindows() {
         {
           id: `${app}-${++seq}`,
           app,
+          arg,
           x: 72 + offset,
           y: 56 + offset,
           minimized: false,

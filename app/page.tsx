@@ -70,6 +70,7 @@ export default function Home() {
   const { windows, open, close, minimize, focus, move, hydrate } = useWindows();
   const [desktopFiles, setDesktopFiles] = useState<DesktopFile[]>([]);
   const [filesTick, setFilesTick] = useState(0);
+  const [notice, setNotice] = useState('');
   const hydratedFor = useRef<string | null>(null);
   const applyPlayers = useCallback(
     (list: import('./game/net').NetPlayer[]) => {
@@ -129,10 +130,18 @@ export default function Home() {
         engine.current?.applyPlaque(roomId, text);
       };
       n.onLight = (roomId, on) => engine.current?.applyLight(roomId, on);
+      n.onUsing = (_roomId, ok) => {
+        if (!ok) {
+          setNotice('Esse computador já está em uso');
+          engine.current?.exitDesktop();
+        }
+      };
+      n.onFiles = () => setFilesTick((t) => t + 1);
       n.connect(session.token);
       if (engine.current) {
-        engine.current.onLocalMove = (x, z, yaw) => n.move(x, z, yaw);
+        engine.current.onLocalMove = (x, z, yaw, y) => n.move(x, z, yaw, y);
         engine.current.onToggleLight = (roomId, on) => n.light(roomId, on);
+        engine.current.onUse = (roomId) => n.using(roomId);
       }
     });
     return () => {
@@ -198,6 +207,11 @@ export default function Home() {
     }, 500);
     return () => window.clearTimeout(t);
   }, [windows, state.desktop, state.desktopRoom]);
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(''), 2500);
+    return () => window.clearTimeout(t);
+  }, [notice]);
   const moveIcon = (id: string, x: number, y: number) => {
     setDesktopFiles((fs) =>
       fs.map((f) => (f.id === id ? { ...f, posX: x, posY: y } : f)),
@@ -226,7 +240,8 @@ export default function Home() {
   const start = () => {
     setSettings(false);
     const s = welcome?.spawn;
-    if (s) engine.current?.spawnAt(s.x, s.z, s.yaw);
+    if (s && state.mode !== 'paused')
+      engine.current?.spawnAt(s.x, s.z, s.yaw);
     engine.current?.start();
   };
   const toggleFull = () => {
@@ -303,15 +318,18 @@ export default function Home() {
         </section>
       )}
       {active && <div className="reticle" aria-hidden="true" />}
-      {active && state.prompt && (
-        <output className="interact-toast">{state.prompt}</output>
+      {active && (notice || state.prompt) && (
+        <output className="interact-toast">{notice || state.prompt}</output>
       )}
       {active && (
         <div className="hud-players" data-testid="hud-players">
           <span className="hud-dot" /> {players.length} NA SALA
           <ul>
             {players.map((p) => (
-              <li key={p.id}>{p.username}</li>
+              <li key={p.id}>
+                {p.using ? '💻 ' : ''}
+                {p.username}
+              </li>
             ))}
           </ul>
           {!netOnline && <em>modo solo</em>}
@@ -341,7 +359,7 @@ export default function Home() {
                 key={f.id}
                 file={f}
                 index={i}
-                onOpen={() => open('notepad')}
+                onOpen={() => open('notepad', f.id)}
                 onMove={moveIcon}
               />
             ))}
@@ -358,8 +376,15 @@ export default function Home() {
             >
               {w.app === 'notepad' && state.desktopRoom && (
                 <Notepad
+                  key={w.id}
                   computerId={state.desktopRoom}
+                  initialFileId={w.arg}
+                  refreshKey={filesTick}
                   onChanged={() => setFilesTick((t) => t + 1)}
+                  onCreated={() => {
+                    close(w.id);
+                    setFilesTick((t) => t + 1);
+                  }}
                 />
               )}
               {w.app === 'calc' && <Calculator />}

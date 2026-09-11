@@ -6,16 +6,22 @@ type FileRow = { id: string; computerId: string; name: string; content: string }
 
 export function Notepad({
   computerId,
+  initialFileId,
+  refreshKey = 0,
   onChanged,
+  onCreated,
 }: {
   computerId: string;
+  initialFileId?: string;
+  refreshKey?: number;
   onChanged?: () => void;
+  onCreated?: (id: string) => void;
 }) {
   const [files, setFiles] = useState<FileRow[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(initialFileId ?? null);
   const [draft, setDraft] = useState('');
   const [status, setStatus] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(!initialFileId);
   const [newName, setNewName] = useState('');
   const nameRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef(0);
@@ -38,7 +44,16 @@ export function Notepad({
     api
       .authed<{ files: FileRow[] }>(`/files?computer=${computerId}`)
       .then(({ files: rows }) => {
-        if (active) setFiles(rows);
+        if (!active) return;
+        setFiles(rows);
+        if (initialFileId) {
+          const f = rows.find((r) => r.id === initialFileId);
+          if (f) {
+            setActiveId(f.id);
+            setDraft(f.content);
+            setCreating(false);
+          }
+        }
       })
       .catch((e) => {
         if (active) setStatus(e instanceof Error ? e.message : 'erro ao carregar');
@@ -46,7 +61,7 @@ export function Notepad({
     return () => {
       active = false;
     };
-  }, [computerId]);
+  }, [computerId, initialFileId, refreshKey]);
   useEffect(() => {
     if (!activeId) return;
     window.clearTimeout(saveTimer.current);
@@ -72,11 +87,15 @@ export function Notepad({
         body: JSON.stringify({ computer: computerId, name: clean, content: '' }),
       });
       await load();
-      setActiveId(file.id);
-      setDraft('');
-      setCreating(false);
-      setNewName('');
-      setStatus('');
+      if (onCreated) {
+        onCreated(file.id);
+      } else {
+        setActiveId(file.id);
+        setDraft('');
+        setCreating(false);
+        setNewName('');
+        setStatus('');
+      }
       onChanged?.();
     } catch (e) {
       setStatus(e instanceof Error ? e.message : 'erro ao criar');

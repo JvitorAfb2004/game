@@ -306,7 +306,7 @@ export function createEnvironment(
 
       // Industrial desk with a notebook, pushed toward the back wall.
       // Notebook keyboard faces the room interior; the lid/back faces the door.
-      const deskX = side * (halfCorridor + roomDepth - 1.2);
+      const deskX = side * (halfCorridor + roomDepth - 2.0);
       box(woodMat, deskX, 0.72, center, 0.9, 0.06, 1.6);
       box(frameMat, deskX - 0.35, 0.36, center - 0.7, 0.08, 0.72, 0.08);
       box(frameMat, deskX + 0.35, 0.36, center - 0.7, 0.08, 0.72, 0.08);

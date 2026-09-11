@@ -59,8 +59,12 @@ export async function registerWs(app: FastifyInstance) {
         if (!msg.success) return;
         const m = msg.data;
         if (m.type === 'move') {
-          room.move(userId, m.x, m.z, m.yaw);
+          room.move(userId, m.x, m.z, m.yaw, m.y ?? 0);
           room.broadcast({ type: 'players', players: room.snapshotPlayers() }, conn);
+        } else if (m.type === 'using') {
+          const ok = room.setUsing(userId, m.roomId);
+          socket.send(JSON.stringify({ type: 'using', roomId: m.roomId, ok }));
+          room.broadcast({ type: 'players', players: room.snapshotPlayers() });
         } else if (m.type === 'light') {
           room.setLight(m.roomId, m.on);
           room.broadcast({ type: 'light', roomId: m.roomId, on: m.on });

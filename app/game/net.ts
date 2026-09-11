@@ -1,4 +1,12 @@
-export type NetPlayer = { id: string; username: string; x: number; z: number; yaw: number };
+export type NetPlayer = {
+  id: string;
+  username: string;
+  x: number;
+  z: number;
+  yaw: number;
+  y?: number;
+  using?: string | null;
+};
 export type Welcome = {
   id: string;
   spawn: { x: number; z: number; yaw: number };
@@ -19,6 +27,8 @@ export class Net {
   onPlaque: (roomId: string, text: string) => void = () => {};
   onWelcome: (w: Welcome) => void = () => {};
   onStatus: (online: boolean) => void = () => {};
+  onUsing: (roomId: string | null, ok: boolean) => void = () => {};
+  onFiles: (computer: string) => void = () => {};
 
   connect(token: string) {
     try {
@@ -35,6 +45,9 @@ export class Net {
         else if (msg.type === 'players') this.onPlayers(msg.players as NetPlayer[]);
         else if (msg.type === 'light') this.onLight(msg.roomId as string, msg.on as boolean);
         else if (msg.type === 'plaque') this.onPlaque(msg.roomId as string, msg.text as string);
+        else if (msg.type === 'using')
+          this.onUsing(msg.roomId as string | null, msg.ok as boolean);
+        else if (msg.type === 'files') this.onFiles(msg.computer as string);
       };
       ws.onclose = () => {
         this.online = false;
@@ -51,11 +64,14 @@ export class Net {
     if (this.online && this.ws?.readyState === WebSocket.OPEN)
       this.ws.send(JSON.stringify({ type, ...payload }));
   }
-  move(x: number, z: number, yaw: number) {
-    this.send('move', { x, z, yaw });
+  move(x: number, z: number, yaw: number, y = 0) {
+    this.send('move', { x, z, yaw, y });
   }
   light(roomId: string, on: boolean) {
     this.send('light', { roomId, on });
+  }
+  using(roomId: string | null) {
+    this.send('using', { roomId });
   }
   plaque(roomId: string, text: string) {
     this.send('plaque', { roomId, text });

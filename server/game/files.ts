@@ -4,6 +4,17 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { computerFiles, computerState } from '../db/schema.ts';
 import { verifyToken } from '../auth/tokens.ts';
+import { room } from '../ws.ts';
+
+async function listFiles(computer: string) {
+  return db.select().from(computerFiles).where(eq(computerFiles.computerId, computer));
+}
+
+function broadcastFiles(computer: string) {
+  void listFiles(computer).then((files) =>
+    room.broadcast({ type: 'files', computer, files }),
+  );
+}
 
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   const header = req.headers.authorization ?? '';
@@ -48,6 +59,7 @@ export async function registerFileRoutes(app: FastifyInstance) {
       .insert(computerFiles)
       .values({ computerId: computer, name, content })
       .returning();
+    broadcastFiles(computer);
     return { file };
   });
 
@@ -70,13 +82,19 @@ export async function registerFileRoutes(app: FastifyInstance) {
       .where(eq(computerFiles.id, id.data))
       .returning();
     if (!file) return reply.code(404).send({ error: 'arquivo não encontrado' });
+    broadcastFiles(file.computerId);
     return { file };
   });
 
   app.delete('/files/:id', { preHandler: requireAuth }, async (req, reply) => {
     const id = z.uuid().safeParse((req.params as { id: string }).id);
     if (!id.success) return reply.code(400).send({ error: 'id inválido' });
+    const [row] = await db
+      .select()
+      .from(computerFiles)
+      .where(eq(computerFiles.id, id.data));
     await db.delete(computerFiles).where(eq(computerFiles.id, id.data));
+    if (row) broadcastFiles(row.computerId);
     return { ok: true };
   });
 

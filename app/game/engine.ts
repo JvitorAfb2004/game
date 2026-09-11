@@ -112,9 +112,14 @@ export class Game {
   notebookTarget: { x: number; y: number; z: number; roomId: string } | null = null;
   remoteGroup = new THREE.Group();
   remotes = new Map<string, THREE.Group>();
-  remoteTargets = new Map<string, { x: number; z: number; yaw: number }>();
-  onLocalMove: ((x: number, z: number, yaw: number) => void) | null = null;
+  remoteTargets = new Map<
+    string,
+    { x: number; z: number; yaw: number; y: number }
+  >();
+  onLocalMove: ((x: number, z: number, yaw: number, y: number) => void) | null =
+    null;
   onToggleLight: ((roomId: string, on: boolean) => void) | null = null;
+  onUse: ((roomId: string | null) => void) | null = null;
   netClock = 0;
   desktopRoomId: string | null = null;
   state: Snapshot = {
@@ -288,6 +293,12 @@ export class Game {
     if (this.state.mode !== 'playing') return;
     this.state.mode = 'paused';
     this.keys.clear();
+    this.onLocalMove?.(
+      this.camera.position.x,
+      this.camera.position.z,
+      this.yaw,
+      this.feetY,
+    );
     if (document.pointerLockElement) document.exitPointerLock();
     this.emit();
   }
@@ -514,17 +525,29 @@ export class Game {
     return g;
   }
   setRemotePlayers(
-    players: { id: string; username: string; x: number; z: number; yaw: number }[],
+    players: {
+      id: string;
+      username: string;
+      x: number;
+      z: number;
+      yaw: number;
+      y?: number;
+    }[],
   ) {
     const seen = new Set<string>();
     for (const p of players) {
       seen.add(p.id);
-      this.remoteTargets.set(p.id, { x: p.x, z: p.z, yaw: p.yaw });
+      this.remoteTargets.set(p.id, {
+        x: p.x,
+        z: p.z,
+        yaw: p.yaw,
+        y: p.y ?? 0,
+      });
       if (!this.remotes.has(p.id)) {
         const g = this.makeRemote(p.username);
         this.remotes.set(p.id, g);
         this.remoteGroup.add(g);
-        g.position.set(p.x, 0, p.z);
+        g.position.set(p.x, p.y ?? 0, p.z);
       }
     }
     for (const [id, g] of this.remotes)
@@ -541,6 +564,7 @@ export class Game {
       if (!t) continue;
       g.position.x += (t.x - g.position.x) * k;
       g.position.z += (t.z - g.position.z) * k;
+      g.position.y += (t.y - g.position.y) * k;
       const tag = g.userData.tag as THREE.Mesh | undefined;
       if (tag) tag.quaternion.copy(this.camera.quaternion);
     }
@@ -566,6 +590,7 @@ export class Game {
     this.desktopRoomId = this.notebookTarget?.roomId ?? null;
     this.keys.clear();
     if (document.pointerLockElement) document.exitPointerLock();
+    this.onUse?.(this.desktopRoomId);
     this.emit();
   }
   exitDesktop() {
@@ -574,6 +599,7 @@ export class Game {
     this.state.desktop = false;
     this.desktopRoomId = null;
     this.keys.clear();
+    this.onUse?.(null);
     this.renderer.domElement.focus();
     try {
       const promise = this.renderer.domElement.requestPointerLock();
@@ -614,7 +640,12 @@ export class Game {
     this.netClock -= dt;
     if (this.state.mode === 'playing' && this.netClock <= 0) {
       this.netClock = 1 / 15;
-      this.onLocalMove?.(this.camera.position.x, this.camera.position.z, this.yaw);
+      this.onLocalMove?.(
+        this.camera.position.x,
+        this.camera.position.z,
+        this.yaw,
+        this.feetY,
+      );
     }
     let moving = 0;
     if (this.state.mode === 'playing') {

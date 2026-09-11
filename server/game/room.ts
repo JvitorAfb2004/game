@@ -12,18 +12,35 @@ export class GameRoom {
   sockets = new Map<Conn, string>();
   lights = new Map<string, boolean>();
   plaques = new Map<string, string>();
+  using = new Map<string, string>();
 
   addPlayer(p: NetPlayer, conn: Conn) {
-    this.players.set(p.id, { ...p, conn });
+    this.players.set(p.id, { y: 0, using: null, ...p, conn });
     this.sockets.set(conn, p.id);
   }
-  move(id: string, x: number, z: number, yaw: number) {
+  move(id: string, x: number, z: number, yaw: number, y = 0) {
     const p = this.players.get(id);
     if (!p) return;
     const c = clampMove(p, x, z);
     p.x = c.x;
     p.z = c.z;
     p.yaw = yaw;
+    p.y = y;
+  }
+  setUsing(id: string, roomId: string | null): boolean {
+    const p = this.players.get(id);
+    if (!p) return false;
+    if (roomId === null) {
+      for (const [r, u] of this.using) if (u === id) this.using.delete(r);
+      p.using = null;
+      return true;
+    }
+    const owner = this.using.get(roomId);
+    if (owner && owner !== id) return false;
+    for (const [r, u] of this.using) if (u === id) this.using.delete(r);
+    this.using.set(roomId, id);
+    p.using = roomId;
+    return true;
   }
   setLight(roomId: string, on: boolean) {
     this.lights.set(roomId, on);
@@ -34,6 +51,7 @@ export class GameRoom {
   leave(id: string) {
     const p = this.players.get(id);
     if (p) this.sockets.delete(p.conn);
+    for (const [r, u] of this.using) if (u === id) this.using.delete(r);
     this.players.delete(id);
   }
   snapshotPlayers(): NetPlayer[] {
