@@ -200,16 +200,13 @@ export function Calculator() {
       <div className="xp-app-bar">Calculadora</div>
       <output className="xp-calc-screen">{display}</output>
       <div className="xp-calc-keys">
-        {['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', '.', 'C', '+'].map(
+        {['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', '.', 'C', '='].map(
           (k) => (
             <button type="button" key={k} onClick={() => press(k)}>
               {k}
             </button>
           ),
         )}
-        <button type="button" onClick={() => press('=')}>
-          =
-        </button>
       </div>
     </div>
   );

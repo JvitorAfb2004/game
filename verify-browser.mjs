@@ -91,12 +91,29 @@ try {
   out.perfLogs = perfLogs.slice(-6);
   await page.screenshot({ path: `${SHOT}/shot-playing.png` });
 
+  // Interaction range: at 3m the notebook must NOT be targetable.
+  await page.evaluate(() => {
+    const g = document.querySelector('.scene').__game;
+    const n = g.env.notebooks[0];
+    const side = Math.sign(n.x);
+    g.camera.position.set(n.x - side * 3, 1.7, n.z);
+    g.camera.lookAt(n.x, n.y, n.z);
+    g.pitch = g.camera.rotation.x;
+    g.yaw = g.camera.rotation.y;
+  });
+  await page.waitForTimeout(300);
+  const farTarget = await page.evaluate(
+    () => !!document.querySelector('.scene').__game.notebookTarget,
+  );
+  out.notebookFarTarget = farTarget;
+  if (farTarget) fail('interaction-range-too-far', {});
+
   // Aim at notebook 0 from inside its room.
   const aim = await page.evaluate(() => {
     const g = document.querySelector('.scene').__game;
     const n = g.env.notebooks[0];
     const side = Math.sign(n.x);
-    g.camera.position.set(n.x - side * 1.5, 1.7, n.z);
+    g.camera.position.set(n.x - side * 0.9, 1.7, n.z);
     const dx = side * 1.5;
     const dy = n.y - 1.7;
     const d = Math.hypot(dx, dy);
@@ -181,7 +198,7 @@ try {
     const g = document.querySelector('.scene').__game;
     const n = g.env.notebooks[0];
     const side = Math.sign(n.x);
-    g.camera.position.set(n.x - side * 1.5, 1.7, n.z);
+    g.camera.position.set(n.x - side * 0.9, 1.7, n.z);
     g.camera.lookAt(n.x, n.y, n.z);
     g.pitch = g.camera.rotation.x;
     g.yaw = g.camera.rotation.y;
@@ -206,6 +223,14 @@ try {
     .catch(() => false);
   out.afterE = { ...afterE, xpVisible: xpVisible2 };
   if (afterE.mode !== 'desktop' || !xpVisible2) fail('xp-not-opened-on-E', out);
+
+  // Calculator: 3 * 8 =
+  await page.locator('.xp-icons button', { hasText: 'Calculadora' }).click();
+  for (const k of ['3', '*', '8', '='])
+    await page.locator('.xp-calc-keys button', { hasText: k }).click();
+  const calc = (await page.locator('.xp-calc-screen').textContent())?.trim();
+  out.calc = calc;
+  if (calc !== '24') fail('calc-wrong', { calc });
 
   if (errors.length) fail('page-errors', { errors: errors.slice(0, 5) });
   out.pageErrors = 0;

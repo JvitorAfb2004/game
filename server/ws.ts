@@ -39,6 +39,7 @@ export async function registerWs(app: FastifyInstance) {
       socket.send(
         JSON.stringify({
           type: 'welcome',
+          id: userId,
           spawn,
           players: room.snapshotPlayers(),
           plaques: Object.fromEntries(room.plaques),
@@ -59,6 +60,7 @@ export async function registerWs(app: FastifyInstance) {
         const m = msg.data;
         if (m.type === 'move') {
           room.move(userId, m.x, m.z, m.yaw);
+          room.broadcast({ type: 'players', players: room.snapshotPlayers() }, conn);
         } else if (m.type === 'light') {
           room.setLight(m.roomId, m.on);
           room.broadcast({ type: 'light', roomId: m.roomId, on: m.on });
@@ -73,10 +75,9 @@ export async function registerWs(app: FastifyInstance) {
       });
 
       socket.on('close', () => {
-        void room.savePosition(userId).finally(() => {
-          room.leave(userId);
-          room.broadcast({ type: 'players', players: room.snapshotPlayers() });
-        });
+        void room.savePosition(userId);
+        room.leave(userId);
+        room.broadcast({ type: 'players', players: room.snapshotPlayers() });
       });
     })();
   });

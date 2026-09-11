@@ -23,3 +23,14 @@ void test('GameRoom adiciona, move e remove jogador', () => {
   room.leave('a');
   assert.equal(room.snapshotPlayers().length, 0);
 });
+
+void test('reconnect do mesmo usuário não duplica', () => {
+  const room = new GameRoom();
+  const base = { id: 'u1', username: 'ana', yaw: 0 };
+  room.addPlayer({ ...base, x: 0, z: 0 }, { send: () => {} });
+  room.addPlayer({ ...base, x: 5, z: 5 }, { send: () => {} });
+  assert.equal(room.snapshotPlayers().length, 1);
+  assert.equal(room.snapshotPlayers()[0].x, 5);
+  room.leave('u1');
+  assert.equal(room.snapshotPlayers().length, 0);
+});

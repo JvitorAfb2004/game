@@ -124,6 +124,9 @@ export function createEnvironment(
     metalness: 0.1,
     side: THREE.DoubleSide,
     depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
   });
   const woodMat = new THREE.MeshStandardMaterial({
     color: 0x6b4a2f,
@@ -195,17 +198,17 @@ export function createEnvironment(
     list.push(scratch.matrix.clone());
   };
 
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 54), floorMat);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 57), floorMat);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, 0, -11);
+  floor.position.set(0, 0, -9.5);
   floor.receiveShadow = true;
   floor.matrixAutoUpdate = false;
   floor.updateMatrix();
   scene.add(floor);
 
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(40, 54), ceilMat);
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(40, 57), ceilMat);
   ceil.rotation.x = Math.PI / 2;
-  ceil.position.set(0, ceilingHeight, -11);
+  ceil.position.set(0, ceilingHeight, -9.5);
   ceil.matrixAutoUpdate = false;
   ceil.updateMatrix();
   scene.add(ceil);
@@ -278,7 +281,7 @@ export function createEnvironment(
       scene.add(sw);
 
       const roomX = side * (halfCorridor + roomDepth / 2);
-      const roomLight = new THREE.PointLight(0xffe9c8, 7, 9, 2);
+      const roomLight = new THREE.PointLight(0xffe9c8, 8, 9, 2);
       roomLight.position.set(roomX, ceilingHeight - 0.3, center);
       roomLight.visible = false;
       scene.add(roomLight);
@@ -361,19 +364,6 @@ export function createEnvironment(
   collider(-doorHalf - segW / 2, wallZ, segW, 0.3);
   collider(doorHalf + segW / 2, wallZ, segW, 0.3);
   box(frameMat, 0, panelH + (ceilingHeight - panelH) / 2, wallZ, doorHalf * 2, ceilingHeight - panelH, 0.12);
-  const spawnFloor = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), floorMat);
-  spawnFloor.rotation.x = -Math.PI / 2;
-  spawnFloor.position.set(0, 0, spawnZ);
-  spawnFloor.receiveShadow = true;
-  spawnFloor.matrixAutoUpdate = false;
-  spawnFloor.updateMatrix();
-  scene.add(spawnFloor);
-  const spawnCeil = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), ceilMat);
-  spawnCeil.rotation.x = Math.PI / 2;
-  spawnCeil.position.set(0, ceilingHeight, spawnZ);
-  spawnCeil.matrixAutoUpdate = false;
-  spawnCeil.updateMatrix();
-  scene.add(spawnCeil);
   const spawnPivot = new THREE.Group();
   spawnPivot.position.set(-doorHalf, 0, wallZ);
   const spawnLeaf = new THREE.Mesh(unitBox, woodMat);
@@ -390,7 +380,7 @@ export function createEnvironment(
   const corridorLights: { light: ThreeType.PointLight; z: number }[] = [];
   for (const z of [7, -4, -15]) {
     box(ledMat, 0, ceilingHeight - 0.03, z, 1.4, 0.05, 1.4);
-    const p = new THREE.PointLight(0xfff2e0, 7, 13, 2);
+    const p = new THREE.PointLight(0xfff2e0, 9, 13, 2);
     p.position.set(0, ceilingHeight - 0.16, z);
     p.visible = false;
     scene.add(p);
@@ -409,9 +399,9 @@ export function createEnvironment(
   }
 
   scene.background = new THREE.Color(0x1b2126);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 0.7));
-  scene.add(new THREE.AmbientLight(0xffffff, 0.12));
-  const lamp = new THREE.DirectionalLight(0xfff4e2, 0.6);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 0.26));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.05));
+  const lamp = new THREE.DirectionalLight(0xfff4e2, 0.22);
   lamp.position.set(6, 12, 8);
   lamp.castShadow = true;
   lamp.shadow.mapSize.set(1024, 1024);
@@ -433,7 +423,7 @@ export function createEnvironment(
     corridorLights,
     notebooks,
     plaques,
-    spawn: { x: 0, z: 16.5, yaw: 0 },
+    spawn: { x: 0, z: 15.6, yaw: 0 },
     spawnPoints,
     setRainCount(_count: number) {
       // Rain is removed in the office scene.

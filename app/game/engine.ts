@@ -334,7 +334,7 @@ export class Game {
   doorBlocked(x: number, z: number, r: number, feet: number) {
     if (feet > 0.5) return false;
     for (const d of this.env.doors) {
-      if (Math.abs(d.group.rotation.y) > 0.4) continue;
+      if (Math.abs(d.group.rotation.y) > 1.2) continue;
       if (d.plane === 'z') {
         if (Math.abs(z - d.z) < r + 0.08 && Math.abs(x - d.x) < d.half + r)
           return true;
@@ -413,15 +413,25 @@ export class Game {
     }
     return moving;
   }
+  halfCorridor() {
+    return 1.5;
+  }
   updateDoors(dt: number) {
+    const k = 1 - Math.exp(-dt * 9);
     for (const d of this.env.doors) {
       const dist = Math.hypot(
         this.camera.position.x - d.x,
         this.camera.position.z - d.z,
       );
-      const target = dist < 1 ? d.side * 1.55 : 0;
-      d.group.rotation.y +=
-        (target - d.group.rotation.y) * (1 - Math.exp(-dt * 9));
+      let target = 0;
+      if (dist < 1.2) {
+        const fromRoom =
+          d.plane === 'x'
+            ? Math.abs(this.camera.position.x) > this.halfCorridor()
+            : this.camera.position.z > d.z;
+        target = (fromRoom ? -d.side : d.side) * (d.plane === 'z' ? -1 : 1) * 1.55;
+      }
+      d.group.rotation.y += (target - d.group.rotation.y) * k;
     }
   }
   updateRooms() {
@@ -441,7 +451,7 @@ export class Game {
         r.switch.z - this.camera.position.z,
       );
       const d = toSwitch.length();
-      if (d < 3 && toSwitch.normalize().dot(forward) > 0.97) {
+      if (d < 1.2 && toSwitch.normalize().dot(forward) > 0.9) {
         this.target = r;
         prompt = `PRESSIONE E PARA ${r.on ? 'DESLIGAR' : 'LIGAR'} A LUZ`;
       }
@@ -456,7 +466,7 @@ export class Game {
         n.z - this.camera.position.z,
       );
       const d = toNb.length();
-      if (d < 3.5 && toNb.normalize().dot(forward) > 0.85) {
+      if (d < 1.2 && toNb.normalize().dot(forward) > 0.85) {
         this.notebookTarget = n;
         prompt = 'PRESSIONE E OU CLIQUE PARA ACESSAR O NOTEBOOK';
       }

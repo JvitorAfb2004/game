@@ -1,5 +1,6 @@
 export type NetPlayer = { id: string; username: string; x: number; z: number; yaw: number };
 export type Welcome = {
+  id: string;
   spawn: { x: number; z: number; yaw: number };
   players: NetPlayer[];
   plaques: Record<string, string>;

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Maximize,
   Minimize,
@@ -54,11 +54,20 @@ export default function Home() {
     },
   );
   const net = useRef<import('./game/net').Net | null>(null);
+  const selfId = useRef('');
   const [players, setPlayers] = useState<import('./game/net').NetPlayer[]>([]);
   const [netOnline, setNetOnline] = useState(true);
   const [welcome, setWelcome] = useState<import('./game/net').Welcome | null>(null);
   const [xpApp, setXpApp] = useState<'home' | 'notepad' | 'calc' | 'plaque'>('home');
   const [plaquesText, setPlaquesText] = useState<Record<string, string>>({});
+  const applyPlayers = useCallback(
+    (list: import('./game/net').NetPlayer[]) => {
+      const others = list.filter((p) => p.id !== selfId.current);
+      setPlayers(others);
+      engine.current?.setRemotePlayers(others);
+    },
+    [],
+  );
   useEffect(() => {
     let disposed = false;
     void import('./game/engine')
@@ -93,11 +102,12 @@ export default function Home() {
       const n = new Net();
       net.current = n;
       n.onStatus = (online) => setNetOnline(online);
-      n.onPlayers = setPlayers;
+      n.onPlayers = applyPlayers;
       n.onWelcome = (w) => {
+        selfId.current = w.id;
         setWelcome(w);
         setPlaquesText(w.plaques);
-        engine.current?.setRemotePlayers(w.players);
+        applyPlayers(w.players);
         for (const [roomId, text] of Object.entries(w.plaques))
           engine.current?.applyPlaque(roomId, text);
         for (const [roomId, on] of Object.entries(w.lights))
@@ -119,7 +129,7 @@ export default function Home() {
       net.current?.close();
       net.current = null;
     };
-  }, [session, ready]);
+  }, [session, ready, applyPlayers]);
   useEffect(() => {
     engine.current?.configure({ muted, sensitivity, graphics });
   }, [muted, sensitivity, graphics, ready]);
