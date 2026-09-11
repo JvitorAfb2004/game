@@ -29,6 +29,7 @@ export function createEnvironment(
     z: number;
     switch: { x: number; y: number; z: number };
   }[] = [];
+  const notebooks: { x: number; y: number; z: number }[] = [];
 
   const corridorWidth = 3;
   const roomDepth = 5.5;
@@ -237,6 +238,18 @@ export function createEnvironment(
         z: center,
         switch: { x: side * 2.4, y: 1.25, z: swZ },
       });
+
+      // Industrial desk with a notebook, facing the door.
+      const deskX = roomX;
+      box(woodMat, deskX, 0.72, center, 1.6, 0.06, 0.9);
+      box(frameMat, deskX - 0.7, 0.36, center - 0.35, 0.08, 0.72, 0.08);
+      box(frameMat, deskX + 0.7, 0.36, center - 0.35, 0.08, 0.72, 0.08);
+      box(frameMat, deskX - 0.7, 0.36, center + 0.35, 0.08, 0.72, 0.08);
+      box(frameMat, deskX + 0.7, 0.36, center + 0.35, 0.08, 0.72, 0.08);
+      box(frameMat, deskX, 0.8, center, 0.42, 0.04, 0.3);
+      box(ledMat, deskX + side * 0.15, 0.99, center, 0.03, 0.34, 0.42);
+      collider(deskX, center, 1.7, 1.0);
+      notebooks.push({ x: deskX + side * 0.15, y: 0.99, z: center });
     }
     // Corridor side wall segments fill the gaps between rooms.
     for (let i = 0; i < roomCenters.length - 1; i++) {
@@ -312,6 +325,7 @@ export function createEnvironment(
     doors,
     rooms,
     corridorLights,
+    notebooks,
     spawnPoints,
     setRainCount(_count: number) {
       // Rain is removed in the office scene.

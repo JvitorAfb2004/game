@@ -3,7 +3,6 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createEnvironment } from './environment';
-import { createCharacter } from './character';
 import { getGraphicsProfile, type GraphicsPreset } from './graphics';
 
 export type Snapshot = {
@@ -77,7 +76,6 @@ export class Game {
   renderer: THREE.WebGLRenderer;
   composer: EffectComposer;
   env: ReturnType<typeof createEnvironment>;
-  characters: ReturnType<typeof createCharacter>[] = [];
   sound = new Soundscape();
   keys = new Set<string>();
   clock = new THREE.Clock();
@@ -142,7 +140,6 @@ export class Game {
     this.composer.addPass(new OutputPass());
     this.bind();
     this.resize();
-    this.addCharacters();
     (this.host as unknown as { __game?: Game }).__game = this;
     this.auditTimer = window.setTimeout(() => {
       if (!this.disposed) this.auditAssets();
@@ -288,11 +285,6 @@ export class Game {
       prompt: '',
     };
     this.emit();
-  }
-  addCharacters() {
-    this.characters = this.env.spawnPoints.map((p, i) =>
-      createCharacter(THREE, this.scene, p.x, p.z, i * 1.713),
-    );
   }
   blocked(x: number, z: number, r = 0.32, feet = 0) {
     return (
@@ -472,7 +464,6 @@ export class Game {
       this.camera.rotation.set(-0.01, -0.12 + Math.sin(this.elapsed * 0.05) * 0.012, 0);
     }
     const t1 = performance.now();
-    for (const c of this.characters) c.update(this.elapsed);
     const t2 = performance.now();
     this.scene.updateMatrixWorld();
     const t3 = performance.now();
