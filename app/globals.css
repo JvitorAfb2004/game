@@ -23,3 +23,10 @@
 .xp-menu button:hover{background:#1f5fb8;color:#fff}
 .xp-clock{margin-left:auto;display:flex;align-items:center;padding:0 18px;background:#1290e9;font-size:13px}
 .xp-hint{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:11px;letter-spacing:1px;background:#0009;padding:6px 12px;border-radius:2px}
+.login-panel{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;z-index:60;background:radial-gradient(circle at 50% 30%,#1c2a30,#0b0f12 70%);color:#e8ece9}
+.login-panel h1{font-size:26px;letter-spacing:4px;margin:0}
+.login-panel form{display:flex;flex-direction:column;gap:.75rem;width:min(320px,80vw)}
+.login-panel label{display:flex;flex-direction:column;gap:.25rem;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:#aab8b8}
+.login-panel input{padding:.6rem .7rem;background:#10171b;border:1px solid #2b3a40;color:#e8ece9;border-radius:4px;font:inherit}
+.login-error{color:#ff8a7a;font-size:.8rem;margin:0}
+.link-button{background:none;border:0;color:#7fd6c2;font-size:.8rem;cursor:pointer}

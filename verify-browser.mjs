@@ -41,6 +41,15 @@ try {
   );
   out.engineReady = true;
 
+  // Auth: register a fresh bot account, then continue.
+  const uname = `bot${Date.now()}`;
+  await page.locator('.login-panel input[autocomplete="username"]').fill(uname);
+  await page.locator('.login-panel input[type="password"]').fill('segredo1');
+  await page.locator('.login-panel .link-button').click();
+  await page.locator('.login-panel .deploy-button').click();
+  await page.waitForSelector('.mission-menu', { timeout: 15000 });
+  out.loggedIn = uname;
+
   await page
     .getByRole('button', { name: /ENTRAR NO ESCRITÓRIO/i })
     .click({ timeout: 10000 });
@@ -85,10 +94,22 @@ try {
     return { nx: n.x, side, yaw: g.yaw, pitch: g.pitch };
   });
   out.aim = aim;
-  await page.waitForTimeout(600);
+  await page
+    .waitForFunction(
+      () => !!document.querySelector('.scene').__game.notebookTarget,
+      null,
+      { timeout: 5000 },
+    )
+    .catch(() => {});
   const targeted = await page.evaluate(() => {
     const g = document.querySelector('.scene').__game;
-    return { aimed: !!g.notebookTarget, prompt: g.state.prompt };
+    return {
+      aimed: !!g.notebookTarget,
+      prompt: g.state.prompt,
+      mode: g.state.mode,
+      pos: [g.camera.position.x, g.camera.position.z],
+      keys: [...g.keys],
+    };
   });
   out.notebookTargeted = targeted;
   if (!targeted.aimed) fail('notebook-not-targeted', targeted);

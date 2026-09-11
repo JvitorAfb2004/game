@@ -16,6 +16,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import type { Game, Snapshot } from './game/engine';
 import type { GraphicsPreset } from './game/graphics';
+import { api } from './api';
 
 const initial: Snapshot = {
   mode: 'menu',
@@ -38,6 +39,13 @@ export default function Home() {
     [startOpen, setStartOpen] = useState(false),
     [clock, setClock] = useState(''),
     [fullscreen, setFullscreen] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [session, setSession] = useState<{ token: string; username: string } | null>(null);
+  const net = useRef<import('./game/net').Net | null>(null);
   useEffect(() => {
     let disposed = false;
     void import('./game/engine')
@@ -63,6 +71,11 @@ export default function Home() {
       engine.current?.dispose();
       engine.current = null;
     };
+  }, []);
+  useEffect(() => {
+    const token = api.token();
+    const name = api.username();
+    if (token && name) setSession({ token, username: name });
   }, []);
   useEffect(() => {
     engine.current?.configure({ muted, sensitivity, graphics });
@@ -105,6 +118,64 @@ export default function Home() {
       />
       <div className="film-grain" aria-hidden="true" />
       <div className="vignette" aria-hidden="true" />
+      {!session && (
+        <section className="login-panel" data-testid="login">
+          <h1>{authMode === 'login' ? 'ENTRAR' : 'CRIAR CONTA'}</h1>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setAuthBusy(true);
+              setAuthError('');
+              try {
+                const { token, username: name } = await api.auth(
+                  authMode,
+                  username,
+                  password,
+                );
+                setSession({ token, username: name });
+              } catch (err) {
+                setAuthError(err instanceof Error ? err.message : 'falha no login');
+              } finally {
+                setAuthBusy(false);
+              }
+            }}
+          >
+            <label>
+              Usuário
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                required
+                minLength={3}
+                maxLength={24}
+              />
+            </label>
+            <label>
+              Senha
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                required
+                minLength={4}
+              />
+            </label>
+            {authError && <p className="login-error">{authError}</p>}
+            <button className="deploy-button" disabled={authBusy}>
+              {authBusy ? 'CONECTANDO…' : authMode === 'login' ? 'ENTRAR' : 'CRIAR CONTA'}
+            </button>
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+            >
+              {authMode === 'login' ? 'Criar conta' : 'Já tenho conta'}
+            </button>
+          </form>
+        </section>
+      )}
       {active && <div className="reticle" aria-hidden="true" />}
       {active && state.prompt && (
         <output className="interact-toast">{state.prompt}</output>
@@ -190,8 +261,8 @@ export default function Home() {
           </button>
         </div>
       </header>
-      {!active && <div className="menu-shade" />}
-      {!active && !settings && !state.desktop && (
+      {session && !active && <div className="menu-shade" />}
+      {session && !active && !settings && !state.desktop && (
         <section className="mission-menu">
           <div className="mission-kicker">
             <span /> {state.mode === 'paused' ? 'VISITA PAUSADA' : 'WALKTHROUGH · EXPLORAÇÃO'}
@@ -313,7 +384,7 @@ export default function Home() {
           </button>
         </section>
       )}
-      {!active && (
+      {session && !active && (
         <footer className="menu-footer">
           <div className="controls">
             <span>
