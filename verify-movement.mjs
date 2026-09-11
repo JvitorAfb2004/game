@@ -110,13 +110,26 @@ g.camera.rotation.set(0, 0, 0);
 g.camera.updateMatrixWorld(true);
 g.updateRooms();
 assert(g.notebookTarget, 'notebook targeted when aimed at');
-assert.equal(g.state.prompt, 'CLIQUE PARA ACESSAR O NOTEBOOK', 'notebook prompt shown');
+assert.equal(g.state.prompt, 'PRESSIONE E OU CLIQUE PARA ACESSAR O NOTEBOOK', 'notebook prompt shown');
 g.enterDesktop();
 assert.equal(g.state.desktop, true, 'desktop opens on click');
 assert.equal(g.state.mode, 'desktop', 'mode switches to desktop');
 g.exitDesktop();
 assert.equal(g.state.desktop, false, 'desktop closes');
 assert.equal(g.state.mode, 'paused', 'exit lands on pause menu');
+g.env = {
+  colliders: [],
+  doors: [],
+  corridorLights: [],
+  rooms: [],
+  notebooks: [{ x: 0.9, y: 1.0, z: -2 }],
+};
+g.camera.position.set(0, 1.7, 0);
+g.camera.rotation.set(0, 0, 0);
+g.camera.updateMatrixWorld(true);
+g.updateRooms();
+assert(g.notebookTarget, 'notebook targeted when looking toward it off-axis');
+assert(g.state.prompt.length > 0, 'prompt shown for off-axis aim');
 await fs.unlink('./.verify-engine.mjs');
 console.log(
   'PASS: collision, swept movement, low-cover landing, door proximity, solid door, room switch, notebook desktop.',

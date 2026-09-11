@@ -184,8 +184,13 @@ export class Game {
         this.exitDesktop();
         return;
       }
-      if (e.code === 'KeyE' && this.state.mode === 'playing')
-        this.toggleTargetRoom();
+      if (e.code === 'KeyE' && this.state.mode === 'playing') {
+        if (this.notebookTarget) {
+          this.enterDesktop();
+        } else {
+          this.toggleTargetRoom();
+        }
+      }
       if (e.code === 'Escape') this.pause();
       if (
         e.code === 'Space' &&
@@ -436,9 +441,9 @@ export class Game {
         n.z - this.camera.position.z,
       );
       const d = toNb.length();
-      if (d < 3 && toNb.normalize().dot(forward) > 0.97) {
+      if (d < 3.5 && toNb.normalize().dot(forward) > 0.85) {
         this.notebookTarget = n;
-        prompt = 'CLIQUE PARA ACESSAR O NOTEBOOK';
+        prompt = 'PRESSIONE E OU CLIQUE PARA ACESSAR O NOTEBOOK';
       }
     }
     this.state.prompt = prompt;
