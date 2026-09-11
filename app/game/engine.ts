@@ -467,9 +467,19 @@ export class Game {
   }
   exitDesktop() {
     if (this.state.mode !== 'desktop') return;
-    this.state.mode = 'paused';
+    this.state.mode = 'playing';
     this.state.desktop = false;
     this.keys.clear();
+    this.renderer.domElement.focus();
+    try {
+      const promise = this.renderer.domElement.requestPointerLock();
+      if (promise && typeof promise.catch === 'function')
+        void promise.catch(() => {
+          this.pointerFallback = true;
+        });
+    } catch {
+      this.pointerFallback = true;
+    }
     this.emit();
   }
   emit() {

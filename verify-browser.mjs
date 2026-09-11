@@ -126,15 +126,9 @@ try {
     .isVisible()
     .catch(() => false));
   out.afterEsc = { ...afterEsc, xpGone };
-  if (afterEsc.mode !== 'paused' || !xpGone) fail('esc-failed', out.afterEsc);
+  if (afterEsc.mode !== 'playing' || !xpGone) fail('esc-failed', out.afterEsc);
 
-  // E key path (resume, then E).
-  await page.getByRole('button', { name: /CONTINUAR/i }).click({ timeout: 10000 });
-  await page.waitForFunction(
-    () => document.querySelector('.scene')?.dataset.mode === 'playing',
-    null,
-    { timeout: 10000 },
-  );
+  // E key path (already back in play after ESC).
   await page.evaluate(() => {
     const g = document.querySelector('.scene').__game;
     const n = g.env.notebooks[0];

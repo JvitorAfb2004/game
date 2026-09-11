@@ -27,6 +27,10 @@ function fixture() {
     scene: new THREE.Scene(),
     host: { dataset: {} },
     onState: () => {},
+    renderer: {
+      domElement: { focus() {}, requestPointerLock() {} },
+    },
+    pointerFallback: false,
     env: {
       colliders: [{ minX: -1, maxX: 1, minZ: -3, maxZ: -2, maxY: 1.07 }],
       doors: [],
@@ -116,7 +120,7 @@ assert.equal(g.state.desktop, true, 'desktop opens on click');
 assert.equal(g.state.mode, 'desktop', 'mode switches to desktop');
 g.exitDesktop();
 assert.equal(g.state.desktop, false, 'desktop closes');
-assert.equal(g.state.mode, 'paused', 'exit lands on pause menu');
+assert.equal(g.state.mode, 'playing', 'exit returns to play');
 g.env = {
   colliders: [],
   doors: [],
