@@ -34,7 +34,7 @@ export default function Home() {
     [settings, setSettings] = useState(false),
     [muted, setMuted] = useState(false),
     [sensitivity, setSensitivity] = useState(1),
-    [graphics, setGraphics] = useState<GraphicsPreset>('medium'),
+    [graphics, setGraphics] = useState<GraphicsPreset>('low'),
     [startOpen, setStartOpen] = useState(false),
     [clock, setClock] = useState(''),
     [fullscreen, setFullscreen] = useState(false);

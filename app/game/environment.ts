@@ -241,15 +241,15 @@ export function createEnvironment(
 
       // Industrial desk with a notebook, facing the door.
       const deskX = roomX;
-      box(woodMat, deskX, 0.72, center, 1.6, 0.06, 0.9);
-      box(frameMat, deskX - 0.7, 0.36, center - 0.35, 0.08, 0.72, 0.08);
-      box(frameMat, deskX + 0.7, 0.36, center - 0.35, 0.08, 0.72, 0.08);
-      box(frameMat, deskX - 0.7, 0.36, center + 0.35, 0.08, 0.72, 0.08);
-      box(frameMat, deskX + 0.7, 0.36, center + 0.35, 0.08, 0.72, 0.08);
-      box(frameMat, deskX, 0.8, center, 0.42, 0.04, 0.3);
-      box(ledMat, deskX + side * 0.15, 0.99, center, 0.03, 0.34, 0.42);
-      collider(deskX, center, 1.7, 1.0);
-      notebooks.push({ x: deskX + side * 0.15, y: 0.99, z: center });
+      box(woodMat, deskX, 0.72, center, 0.9, 0.06, 1.6);
+      box(frameMat, deskX - 0.35, 0.36, center - 0.7, 0.08, 0.72, 0.08);
+      box(frameMat, deskX + 0.35, 0.36, center - 0.7, 0.08, 0.72, 0.08);
+      box(frameMat, deskX - 0.35, 0.36, center + 0.7, 0.08, 0.72, 0.08);
+      box(frameMat, deskX + 0.35, 0.36, center + 0.7, 0.08, 0.72, 0.08);
+      box(frameMat, deskX - side * 0.05, 0.8, center, 0.3, 0.04, 0.42);
+      box(ledMat, deskX + side * 0.1, 0.99, center, 0.03, 0.34, 0.42);
+      collider(deskX, center, 1.0, 1.7);
+      notebooks.push({ x: deskX + side * 0.1, y: 0.99, z: center });
     }
     // Corridor side wall segments fill the gaps between rooms.
     for (let i = 0; i < roomCenters.length - 1; i++) {
