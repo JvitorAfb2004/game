@@ -20,6 +20,15 @@ export function createEnvironment(
     side: number;
     half: number;
   }[] = [];
+  const rooms: {
+    light: ThreeType.PointLight;
+    led: ThreeType.Mesh;
+    on: boolean;
+    side: number;
+    x: number;
+    z: number;
+    switch: { x: number; y: number; z: number };
+  }[] = [];
 
   const corridorWidth = 3;
   const roomDepth = 5.5;
@@ -46,14 +55,26 @@ export function createEnvironment(
     roughness: 0.96,
   });
   const glassMat = new THREE.MeshStandardMaterial({
-    color: 0xbfe3df,
+    color: 0xdfe8e6,
     transparent: true,
-    opacity: 0.16,
-    roughness: 0.04,
+    opacity: 0.55,
+    roughness: 0.65,
     metalness: 0,
-    envMapIntensity: 1.4,
     side: THREE.DoubleSide,
     depthWrite: false,
+  });
+  const woodMat = new THREE.MeshStandardMaterial({
+    color: 0x6b4a2f,
+    roughness: 0.85,
+  });
+  const woodEdgeMat = new THREE.MeshStandardMaterial({
+    color: 0x4a2f1c,
+    roughness: 0.8,
+  });
+  const handleMat = new THREE.MeshStandardMaterial({
+    color: 0xc8c2b4,
+    roughness: 0.35,
+    metalness: 0.85,
   });
   const frameMat = new THREE.MeshStandardMaterial({
     color: 0x24282c,
@@ -162,20 +183,50 @@ export function createEnvironment(
       box(frameMat, xFace, panelH / 2, center + doorHalf, 0.12, panelH, 0.08);
       box(frameMat, xFace, panelH / 2, z0 + 0.04, 0.12, panelH, 0.08);
       box(frameMat, xFace, panelH / 2, z1 - 0.04, 0.12, panelH, 0.08);
-      // Small light switch inside the room, on the back wall.
-      box(switchMat, side * (xFar - 0.2), 1.25, center, 0.05, 0.14, 0.09);
 
+      // Wooden door with a handle.
       const pivot = new THREE.Group();
       pivot.position.set(xFace, 0, center - doorHalf);
-      const leaf = new THREE.Mesh(unitBox, glassMat);
-      leaf.scale.set(0.05, panelH, doorHalf * 2);
+      const leaf = new THREE.Mesh(unitBox, woodMat);
+      leaf.scale.set(0.06, panelH, doorHalf * 2);
       leaf.position.set(0, panelH / 2, doorHalf);
-      const leafFrame = new THREE.Mesh(unitBox, frameMat);
-      leafFrame.scale.set(0.07, 0.08, doorHalf * 2);
-      leafFrame.position.set(0, panelH - 0.05, doorHalf);
-      pivot.add(leaf, leafFrame);
+      const leafEdge = new THREE.Mesh(unitBox, woodEdgeMat);
+      leafEdge.scale.set(0.08, 0.09, doorHalf * 2);
+      leafEdge.position.set(0, panelH - 0.05, doorHalf);
+      const handle = new THREE.Mesh(unitBox, handleMat);
+      handle.scale.set(0.03, 0.05, 0.16);
+      handle.position.set(-side * 0.06, 1.05, doorHalf * 2 - 0.22);
+      pivot.add(leaf, leafEdge, handle);
       scene.add(pivot);
       doors.push({ group: pivot, x: xFace, z: center, side, half: doorHalf });
+
+      // Switch on the lateral wall near the door.
+      const swZ = z0 + 0.22;
+      const sw = new THREE.Mesh(unitBox, switchMat);
+      sw.scale.set(0.09, 0.14, 0.05);
+      sw.position.set(side * 2.4, 1.25, swZ);
+      scene.add(sw);
+
+      const roomX = side * (halfCorridor + roomDepth / 2);
+      const roomLight = new THREE.PointLight(0xffe9c8, 7, 9, 2);
+      roomLight.position.set(roomX, ceilingHeight - 0.3, center);
+      roomLight.visible = false;
+      scene.add(roomLight);
+
+      const led = new THREE.Mesh(unitBox, ledMat);
+      led.scale.set(0.9, 0.05, 1.8);
+      led.position.set(roomX, ceilingHeight - 0.03, center);
+      scene.add(led);
+
+      rooms.push({
+        light: roomLight,
+        led,
+        on: true,
+        side,
+        x: roomX,
+        z: center,
+        switch: { x: side * 2.4, y: 1.25, z: swZ },
+      });
     }
     // Corridor side wall segments fill the gaps between rooms.
     for (let i = 0; i < roomCenters.length - 1; i++) {
@@ -206,11 +257,7 @@ export function createEnvironment(
   collider(0, roomCenters[0] + roomWidth / 2 + 1.8, corridorWidth + 0.6, 0.3);
   collider(0, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, 0.3);
 
-  // Ceiling LED panels.
-  for (const center of roomCenters) {
-    box(ledMat, 3.4, ceilingHeight - 0.03, center, 0.7, 0.05, 1.4);
-    box(ledMat, -3.4, ceilingHeight - 0.03, center, 0.7, 0.05, 1.4);
-  }
+  // Corridor ceiling LED strips (room panels are separate so they can toggle).
   for (let z = 10; z > -34; z -= 11)
     box(ledMat, 0, ceilingHeight - 0.03, z, 1.4, 0.05, 1.4);
 
@@ -226,14 +273,14 @@ export function createEnvironment(
   }
 
   scene.background = new THREE.Color(0x1b2126);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 2.2));
-  scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 0.7));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.12));
   for (const z of [8, -6, -20]) {
-    const p = new THREE.PointLight(0xfff2e0, 12, 16, 2);
+    const p = new THREE.PointLight(0xfff2e0, 6, 14, 2);
     p.position.set(0, ceilingHeight - 0.2, z);
     scene.add(p);
   }
-  const lamp = new THREE.DirectionalLight(0xfff4e2, 1.2);
+  const lamp = new THREE.DirectionalLight(0xfff4e2, 0.6);
   lamp.position.set(6, 12, 8);
   lamp.castShadow = true;
   lamp.shadow.mapSize.set(1024, 1024);
@@ -251,6 +298,7 @@ export function createEnvironment(
   return {
     colliders,
     doors,
+    rooms,
     spawnPoints,
     setRainCount(_count: number) {
       // Rain is removed in the office scene.

@@ -7,6 +7,9 @@ const env = createEnvironment(THREE, scene);
 
 assert.equal(env.spawnPoints.length, 12, 'twelve room characters');
 assert.equal(env.doors.length, 12, 'twelve hinged doors');
+assert.equal(env.rooms.length, 12, 'twelve switchable rooms');
+for (const r of env.rooms)
+  assert(r.switch && r.light && r.led, 'room has light and switch');
 assert(env.colliders.length > 0, 'office has walls');
 
 const blocked = (x, z, r = 0.32) =>
