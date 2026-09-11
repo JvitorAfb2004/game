@@ -69,5 +69,31 @@ g.env = { colliders: [], doors: [{ group: new THREE.Object3D(), x: 1.5, z: 0, si
 assert(g.blocked(1.5, 0, 0.32, 0), 'closed door blocks movement');
 g.env.doors[0].group.rotation.y = 1.55;
 assert(!g.blocked(1.5, 0, 0.32, 0), 'open door passes');
+g.env = {
+  colliders: [],
+  doors: [],
+  rooms: [
+    {
+      on: true,
+      light: { visible: false },
+      led: { material: {} },
+      switch: { x: 0, y: 1.7, z: -2 },
+      x: 0,
+      z: -2,
+      side: 1,
+    },
+  ],
+};
+g.camera.position.set(0, 1.7, 0);
+g.camera.rotation.set(0, 0, 0);
+g.camera.updateMatrixWorld(true);
+g.updateRooms();
+assert(g.state.prompt.length > 0, 'prompt shown when aiming at the switch');
+assert(g.env.rooms[0].light.visible, 'near room light is enabled');
+g.toggleTargetRoom();
+assert.equal(g.env.rooms[0].on, false, 'E toggles the room light off');
+assert.equal(g.env.rooms[0].light.visible, false, 'toggled-off light is hidden');
 await fs.unlink('./.verify-engine.mjs');
-console.log('PASS: collision, swept movement, low-cover landing, door proximity, solid door.');
+console.log(
+  'PASS: collision, swept movement, low-cover landing, door proximity, solid door, room switch.',
+);

@@ -3,7 +3,6 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createEnvironment } from './environment';
 import { createCharacter } from './character';
 import { getGraphicsProfile, type GraphicsPreset } from './graphics';
@@ -12,7 +11,10 @@ export type Snapshot = {
   mode: 'menu' | 'playing' | 'paused';
   fps: number;
   player: { x: number; z: number };
+  prompt: string;
 };
+
+type Room = ReturnType<typeof createEnvironment>['rooms'][number];
 
 class Soundscape {
   ctx: AudioContext | null = null;
@@ -98,10 +100,12 @@ export class Game {
   pointerFallback = false;
   lastMouse = { x: 0, y: 0 };
   liveTime = 0;
+  target: Room | null = null;
   state: Snapshot = {
     mode: 'menu',
     fps: 60,
     player: { x: 0, z: 13 },
+    prompt: '',
   };
   cleanup: (() => void)[] = [];
   constructor(host: HTMLDivElement, onState: (s: Snapshot) => void) {
@@ -124,12 +128,6 @@ export class Game {
     this.camera.rotation.order = 'YXZ';
     this.scene.add(this.camera);
     this.env = createEnvironment(THREE, this.scene);
-    const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(
-      new RoomEnvironment(),
-      0.04,
-    ).texture;
-    pmrem.dispose();
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.24, 0.5, 1.08);
@@ -175,6 +173,8 @@ export class Game {
       )
         e.preventDefault();
       this.keys.add(e.code);
+      if (e.code === 'KeyE' && this.state.mode === 'playing')
+        this.toggleTargetRoom();
       if (e.code === 'Escape') this.pause();
       if (
         e.code === 'Space' &&
@@ -274,7 +274,12 @@ export class Game {
     this.vertical = 0;
     this.liveTime = 0;
     this.keys.clear();
-    this.state = { mode: 'menu', fps: this.state.fps, player: { x: 0, z: 13 } };
+    this.state = {
+      mode: 'menu',
+      fps: this.state.fps,
+      player: { x: 0, z: 13 },
+      prompt: '',
+    };
     this.emit();
   }
   addCharacters() {
@@ -389,6 +394,40 @@ export class Game {
         (target - d.group.rotation.y) * (1 - Math.exp(-dt * 9));
     }
   }
+  updateRooms() {
+    const forward = new THREE.Vector3();
+    this.camera.getWorldDirection(forward);
+    this.target = null;
+    let prompt = '';
+    for (const r of this.env.rooms) {
+      const dist = Math.hypot(
+        this.camera.position.x - r.x,
+        this.camera.position.z - r.z,
+      );
+      r.light.visible = r.on && dist < 6;
+      const toSwitch = new THREE.Vector3(
+        r.switch.x - this.camera.position.x,
+        r.switch.y - this.camera.position.y,
+        r.switch.z - this.camera.position.z,
+      );
+      const d = toSwitch.length();
+      if (d < 3 && toSwitch.normalize().dot(forward) > 0.97) {
+        this.target = r;
+        prompt = `PRESSIONE E PARA ${r.on ? 'DESLIGAR' : 'LIGAR'} A LUZ`;
+      }
+    }
+    this.state.prompt = prompt;
+  }
+  toggleTargetRoom() {
+    const r = this.target;
+    if (!r) return;
+    r.on = !r.on;
+    r.light.visible = r.on;
+    (r.led.material as THREE.MeshStandardMaterial).emissiveIntensity = r.on
+      ? 1.6
+      : 0;
+    this.sound.noise(0.05, 0.1, 900);
+  }
   emit() {
     this.host.dataset.fps = String(this.state.fps);
     this.host.dataset.position = `${this.camera.position.x.toFixed(2)},${this.camera.position.z.toFixed(2)}`;
@@ -397,6 +436,7 @@ export class Game {
       mode: this.state.mode,
       fps: this.state.fps,
       player: { x: this.camera.position.x, z: this.camera.position.z },
+      prompt: this.state.prompt,
     });
   }
   animate = () => {
@@ -406,6 +446,7 @@ export class Game {
     this.elapsed += dt;
     this.env.update(dt, this.elapsed);
     this.updateDoors(dt);
+    this.updateRooms();
     let moving = 0;
     if (this.state.mode === 'playing') {
       this.liveTime += dt;

@@ -21,6 +21,7 @@ const initial: Snapshot = {
   mode: 'menu',
   fps: 60,
   player: { x: 0, z: 13 },
+  prompt: '',
 };
 
 export default function Home() {
@@ -89,6 +90,10 @@ export default function Home() {
       />
       <div className="film-grain" aria-hidden="true" />
       <div className="vignette" aria-hidden="true" />
+      {active && <div className="reticle" aria-hidden="true" />}
+      {active && state.prompt && (
+        <output className="interact-toast">{state.prompt}</output>
+      )}
       <header className="topbar">
         <div className="wordmark">
           <span className="brand-mark">
