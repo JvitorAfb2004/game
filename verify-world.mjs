@@ -24,12 +24,15 @@ for (const p of env.spawnPoints) {
 }
 
 env.update(0.016, 1);
+const instanced = scene.children.filter((o) => o.isInstancedMesh);
+assert(instanced.length >= 4, 'static geometry is batched into instanced meshes');
 console.log(
   JSON.stringify(
     {
-      checks: 'office corridor, twelve rooms, open entrances',
+      checks: 'office corridor, twelve rooms, open entrances, instanced walls',
       colliders: env.colliders.length,
       characters: env.spawnPoints.length,
+      instancedMeshes: instanced.length,
     },
     null,
     2,

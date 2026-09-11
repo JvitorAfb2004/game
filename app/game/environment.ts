@@ -34,7 +34,7 @@ export function createEnvironment(
     roughness: 0.92,
   });
   const corridorWallMat = new THREE.MeshStandardMaterial({
-    color: 0x5a6066,
+    color: 0x565c62,
     roughness: 0.92,
   });
   const floorMat = new THREE.MeshStandardMaterial({
@@ -65,6 +65,11 @@ export function createEnvironment(
     roughness: 0.5,
     metalness: 0.05,
   });
+  const ledMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xffffff,
+    emissiveIntensity: 1.6,
+  });
 
   const collider = (
     x: number,
@@ -81,78 +86,33 @@ export function createEnvironment(
       maxY,
     });
 
-  const wall = (x: number, z: number, w: number, d: number) => {
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(w, ceilingHeight, d),
-      wallMat,
-    );
-    mesh.position.set(x, ceilingHeight / 2, z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.matrixAutoUpdate = false;
-    mesh.updateMatrix();
-    scene.add(mesh);
-    collider(x, z, w, d);
-  };
-
-  const corridorWall = (x: number, z: number, w: number, d: number) => {
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(w, ceilingHeight, d),
-      corridorWallMat,
-    );
-    mesh.position.set(x, ceilingHeight / 2, z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.matrixAutoUpdate = false;
-    mesh.updateMatrix();
-    scene.add(mesh);
-    collider(x, z, w, d);
-  };
-
-  const addBox = (
+  // Static boxes are batched per material into one InstancedMesh each.
+  const unitBox = new THREE.BoxGeometry(1, 1, 1);
+  const batches = new Map<ThreeType.Material, ThreeType.Matrix4[]>();
+  const scratch = new THREE.Object3D();
+  const box = (
+    material: ThreeType.Material,
     x: number,
     y: number,
     z: number,
     w: number,
     h: number,
     d: number,
+    ry = 0,
   ) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    scene.add(mesh);
+    scratch.position.set(x, y, z);
+    scratch.rotation.set(0, ry, 0);
+    scratch.scale.set(w, h, d);
+    scratch.updateMatrix();
+    let list = batches.get(material);
+    if (!list) {
+      list = [];
+      batches.set(material, list);
+    }
+    list.push(scratch.matrix.clone());
   };
 
-  const addPanel = (x: number, z: number, w: number) => {
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.05, panelH, w),
-      glassMat,
-    );
-    mesh.position.set(x, panelH / 2, z);
-    scene.add(mesh);
-    collider(x, z, 0.12, w);
-  };
-
-  const addSolid = (
-    x: number,
-    y: number,
-    z: number,
-    w: number,
-    h: number,
-    d: number,
-    mat: ThreeType.Material,
-  ) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-  };
-
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(40, 54),
-    floorMat,
-  );
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 54), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, 0, -11);
   floor.receiveShadow = true;
@@ -175,101 +135,99 @@ export function createEnvironment(
       const z0 = center - roomWidth / 2;
       const z1 = center + roomWidth / 2;
       const xCenter = side * (halfCorridor + roomDepth / 2);
-      wall(side * xFar, center, 0.3, roomWidth);
-      wall(xCenter, z0, roomDepth, 0.3);
-      wall(xCenter, z1, roomDepth, 0.3);
+      box(wallMat, side * xFar, ceilingHeight / 2, center, 0.3, ceilingHeight, roomWidth);
+      box(wallMat, xCenter, ceilingHeight / 2, z0, roomDepth, ceilingHeight, 0.3);
+      box(wallMat, xCenter, ceilingHeight / 2, z1, roomDepth, ceilingHeight, 0.3);
+      collider(side * xFar, center, 0.3, roomWidth);
+      collider(xCenter, z0, roomDepth, 0.3);
+      collider(xCenter, z1, roomDepth, 0.3);
 
       // Glass facade with a central hinged door.
       const xFace = side * halfCorridor;
       const panelWidth = roomWidth / 2 - doorHalf;
+      const pz0 = center - (doorHalf + panelWidth / 2);
+      const pz1 = center + (doorHalf + panelWidth / 2);
       const upperH = ceilingHeight - panelH;
       const upperY = panelH + upperH / 2;
-      addPanel(xFace, center - (doorHalf + panelWidth / 2), panelWidth);
-      addPanel(xFace, center + (doorHalf + panelWidth / 2), panelWidth);
-      addSolid(
-        xFace,
-        upperY,
-        center - (doorHalf + panelWidth / 2),
-        0.3,
-        upperH,
-        panelWidth,
-        corridorWallMat,
-      );
-      addSolid(
-        xFace,
-        upperY,
-        center + (doorHalf + panelWidth / 2),
-        0.3,
-        upperH,
-        panelWidth,
-        corridorWallMat,
-      );
-      addBox(
-        xFace,
-        upperY,
-        center,
-        0.12,
-        upperH,
-        doorHalf * 2,
-      );
-      addBox(xFace, panelH / 2, center - doorHalf, 0.12, panelH, 0.08);
-      addBox(xFace, panelH / 2, center + doorHalf, 0.12, panelH, 0.08);
-      addBox(xFace, panelH / 2, z0 + 0.04, 0.12, panelH, 0.08);
-      addBox(xFace, panelH / 2, z1 - 0.04, 0.12, panelH, 0.08);
+
+      box(glassMat, xFace, panelH / 2, pz0, 0.05, panelH, panelWidth);
+      box(glassMat, xFace, panelH / 2, pz1, 0.05, panelH, panelWidth);
+      collider(xFace, pz0, 0.12, panelWidth);
+      collider(xFace, pz1, 0.12, panelWidth);
+      // Solid wall above the glass, up to the ceiling.
+      box(corridorWallMat, xFace, upperY, pz0, 0.3, upperH, panelWidth);
+      box(corridorWallMat, xFace, upperY, pz1, 0.3, upperH, panelWidth);
+      box(frameMat, xFace, upperY, center, 0.12, upperH, doorHalf * 2);
+      box(frameMat, xFace, panelH / 2, center - doorHalf, 0.12, panelH, 0.08);
+      box(frameMat, xFace, panelH / 2, center + doorHalf, 0.12, panelH, 0.08);
+      box(frameMat, xFace, panelH / 2, z0 + 0.04, 0.12, panelH, 0.08);
+      box(frameMat, xFace, panelH / 2, z1 - 0.04, 0.12, panelH, 0.08);
+      // Small light switch inside the room, on the back wall.
+      box(switchMat, side * (xFar - 0.2), 1.25, center, 0.05, 0.14, 0.09);
+
       const pivot = new THREE.Group();
       pivot.position.set(xFace, 0, center - doorHalf);
-      const leaf = new THREE.Mesh(
-        new THREE.BoxGeometry(0.05, panelH, doorHalf * 2),
-        glassMat,
-      );
+      const leaf = new THREE.Mesh(unitBox, glassMat);
+      leaf.scale.set(0.05, panelH, doorHalf * 2);
       leaf.position.set(0, panelH / 2, doorHalf);
-      const leafFrame = new THREE.Mesh(
-        new THREE.BoxGeometry(0.07, 0.08, doorHalf * 2),
-        frameMat,
-      );
+      const leafFrame = new THREE.Mesh(unitBox, frameMat);
+      leafFrame.scale.set(0.07, 0.08, doorHalf * 2);
       leafFrame.position.set(0, panelH - 0.05, doorHalf);
       pivot.add(leaf, leafFrame);
       scene.add(pivot);
       doors.push({ group: pivot, x: xFace, z: center, side, half: doorHalf });
-      // Small light switch inside the room, on the back wall.
-      addSolid(side * (xFar - 0.2), 1.25, center, 0.05, 0.14, 0.09, switchMat);
     }
     // Corridor side wall segments fill the gaps between rooms.
     for (let i = 0; i < roomCenters.length - 1; i++) {
       const zTop = roomCenters[i] - roomWidth / 2;
       const zBottom = roomCenters[i + 1] + roomWidth / 2;
-      corridorWall(side * halfCorridor, (zTop + zBottom) / 2, 0.3, zTop - zBottom);
+      box(
+        corridorWallMat,
+        side * halfCorridor,
+        ceilingHeight / 2,
+        (zTop + zBottom) / 2,
+        0.3,
+        ceilingHeight,
+        zTop - zBottom,
+      );
+      collider(side * halfCorridor, (zTop + zBottom) / 2, 0.3, zTop - zBottom);
     }
     // End caps above the first and below the last room.
     const zTopEnd = roomCenters[0] + roomWidth / 2;
     const zBottomEnd = roomCenters[roomCenters.length - 1] - roomWidth / 2;
-    corridorWall(side * halfCorridor, zTopEnd + 0.75, 0.3, 1.8);
-    corridorWall(side * halfCorridor, zBottomEnd - 0.75, 0.3, 1.8);
+    box(corridorWallMat, side * halfCorridor, ceilingHeight / 2, zTopEnd + 0.75, 0.3, ceilingHeight, 1.8);
+    box(corridorWallMat, side * halfCorridor, ceilingHeight / 2, zBottomEnd - 0.75, 0.3, ceilingHeight, 1.8);
+    collider(side * halfCorridor, zTopEnd + 0.75, 0.3, 1.8);
+    collider(side * halfCorridor, zBottomEnd - 0.75, 0.3, 1.8);
   }
   // Corridor end walls.
-  corridorWall(0, roomCenters[0] + roomWidth / 2 + 1.8, corridorWidth + 0.6, 0.3);
-  corridorWall(0, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, 0.3);
+  box(corridorWallMat, 0, ceilingHeight / 2, roomCenters[0] + roomWidth / 2 + 1.8, corridorWidth + 0.6, ceilingHeight, 0.3);
+  box(corridorWallMat, 0, ceilingHeight / 2, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, ceilingHeight, 0.3);
+  collider(0, roomCenters[0] + roomWidth / 2 + 1.8, corridorWidth + 0.6, 0.3);
+  collider(0, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, 0.3);
+
+  // Ceiling LED panels.
+  for (const center of roomCenters) {
+    box(ledMat, 3.4, ceilingHeight - 0.03, center, 0.7, 0.05, 1.4);
+    box(ledMat, -3.4, ceilingHeight - 0.03, center, 0.7, 0.05, 1.4);
+  }
+  for (let z = 10; z > -34; z -= 11)
+    box(ledMat, 0, ceilingHeight - 0.03, z, 1.4, 0.05, 1.4);
+
+  // Flush one InstancedMesh per material.
+  for (const [material, matrices] of batches) {
+    const mesh = new THREE.InstancedMesh(unitBox, material, matrices.length);
+    matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
+    mesh.castShadow = material !== glassMat && material !== ledMat;
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    mesh.computeBoundingSphere();
+    scene.add(mesh);
+  }
 
   scene.background = new THREE.Color(0x1b2126);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 2.2));
   scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-  const ledMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    emissive: 0xffffff,
-    emissiveIntensity: 1.6,
-  });
-  const panel = (x: number, z: number, w: number, d: number) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), ledMat);
-    mesh.position.set(x, ceilingHeight - 0.03, z);
-    mesh.matrixAutoUpdate = false;
-    mesh.updateMatrix();
-    scene.add(mesh);
-  };
-  for (const center of roomCenters) {
-    panel(3.4, center, 0.7, 1.4);
-    panel(-3.4, center, 0.7, 1.4);
-  }
-  for (let z = 10; z > -34; z -= 11) panel(0, z, 1.4, 1.4);
   for (const z of [8, -6, -20]) {
     const p = new THREE.PointLight(0xfff2e0, 12, 16, 2);
     p.position.set(0, ceilingHeight - 0.2, z);
