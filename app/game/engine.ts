@@ -86,6 +86,17 @@ export class Game {
   frame = 0;
   elapsed = 0;
   hudClock = 0;
+  // ponytail: dev-only perf telemetry, throttled console logs, zero UI cost
+  perfSec = 0;
+  perfFrames = 0;
+  cpuSec = 0;
+  cpuN = 0;
+  cpuLogic = 0;
+  cpuMatrix = 0;
+  cpuChars = 0;
+  cpuRender = 0;
+  hotspotCooldown = 0;
+  auditTimer = 0;
   stepClock = 0;
   yaw = 0;
   pitch = 0;
@@ -136,6 +147,10 @@ export class Game {
     this.bind();
     this.resize();
     this.addCharacters();
+    (this.host as unknown as { __game?: Game }).__game = this;
+    this.auditTimer = window.setTimeout(() => {
+      if (!this.disposed) this.auditAssets();
+    }, 3000);
     this.animate();
   }
   configure(o: {
@@ -446,6 +461,8 @@ export class Game {
     this.frame = requestAnimationFrame(this.animate);
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.elapsed += dt;
+    const frameMs = dt * 1000;
+    const t0 = performance.now();
     this.env.update(dt, this.elapsed);
     this.updateDoors(dt);
     this.updateRooms();
@@ -461,7 +478,11 @@ export class Game {
       );
       this.camera.rotation.set(-0.01, -0.12 + Math.sin(this.elapsed * 0.05) * 0.012, 0);
     }
+    const t1 = performance.now();
     for (const c of this.characters) c.update(this.elapsed);
+    const t2 = performance.now();
+    this.scene.updateMatrixWorld();
+    const t3 = performance.now();
     void moving;
     this.hudClock += dt;
     if (this.hudClock > 0.1) {
@@ -470,10 +491,123 @@ export class Game {
       this.emit();
     }
     this.composer.render();
+    this.reportPerf(frameMs, t1 - t0, t3 - t2, t2 - t1, performance.now() - t3);
   };
+  reportPerf(frameMs: number, logic: number, matrix: number, chars: number, render: number) {
+    const sec = frameMs / 1000;
+    this.perfSec += sec;
+    this.perfFrames++;
+    this.cpuSec += sec;
+    this.cpuN++;
+    this.cpuLogic += logic;
+    this.cpuMatrix += matrix;
+    this.cpuChars += chars;
+    this.cpuRender += render;
+    this.hotspotCooldown -= sec;
+    if (frameMs > 25 && this.hotspotCooldown <= 0) {
+      this.hotspotCooldown = 2;
+      const p = this.camera.position;
+      const info = this.renderer.info;
+      console.warn(
+        `[perf hotspot] ${frameMs.toFixed(1)}ms @ (${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)}) | calls ${info.render.calls} | visible ${this.countVisible()}`,
+      );
+    }
+    if (this.perfSec >= 2 && this.perfFrames > 0) {
+      const info = this.renderer.info;
+      const fps = Math.round(this.perfFrames / this.perfSec);
+      console.info(
+        `[perf] fps ${fps} | frame ${(this.perfSec * 1000 / this.perfFrames).toFixed(1)}ms | calls ${info.render.calls} | tris ${info.render.triangles} | geo ${info.memory.geometries} | tex ${info.memory.textures}`,
+      );
+      this.host.dataset.perf = `${fps}|${info.render.calls}|${info.render.triangles}`;
+      this.perfSec = 0;
+      this.perfFrames = 0;
+    }
+    if (this.cpuSec >= 5 && this.cpuN > 0) {
+      const avg = (v: number) => (v / this.cpuN).toFixed(2);
+      const cpu = this.cpuLogic + this.cpuMatrix + this.cpuChars;
+      console.info(
+        `[perf cpu] logic ${avg(this.cpuLogic)}ms | matrix ${avg(this.cpuMatrix)}ms | chars ${avg(this.cpuChars)}ms | render-submit ${avg(this.cpuRender)}ms | ${this.cpuRender > cpu ? 'submit-bound' : 'cpu-bound'} (submit exclui GPU; fps baixo com submit baixo = GPU/fragment-bound)`,
+      );
+      this.cpuSec = 0;
+      this.cpuN = 0;
+      this.cpuLogic = this.cpuMatrix = this.cpuChars = this.cpuRender = 0;
+    }
+  }
+  countVisible() {
+    try {
+      this.camera.updateMatrixWorld();
+      const frustum = new THREE.Frustum();
+      frustum.setFromProjectionMatrix(
+        new THREE.Matrix4().multiplyMatrices(
+          this.camera.projectionMatrix,
+          this.camera.matrixWorldInverse,
+        ),
+      );
+      let n = 0;
+      this.scene.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh && frustum.intersectsObject(o)) n++;
+      });
+      return n;
+    } catch {
+      return -1;
+    }
+  }
+  auditAssets() {
+    const tex = new Map<string, { w: number; h: number; n: number }>();
+    let materials = 0;
+    let transparent = 0;
+    let shadowCasters = 0;
+    const geos = new Map<string, { n: number; tris: number; instanced: boolean }>();
+    this.scene.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      if (mesh.castShadow) shadowCasters++;
+      const geo = mesh.geometry as THREE.BufferGeometry;
+      if (!geo.boundingSphere) geo.computeBoundingSphere();
+      const tris = Math.round(
+        (geo.index ? geo.index.count : geo.attributes.position.count) / 3,
+      );
+      const g = geos.get(geo.uuid) ?? { n: 0, tris, instanced: true };
+      g.n++;
+      if ((mesh as unknown as { isInstancedMesh?: boolean }).isInstancedMesh !== true)
+        g.instanced = false;
+      geos.set(geo.uuid, g);
+      const list = (
+        Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      ) as THREE.Material[];
+      for (const m of list) {
+        materials++;
+        if ((m as THREE.MeshStandardMaterial).transparent) transparent++;
+        for (const v of Object.values(m)) {
+          const t = v as THREE.Texture | null;
+          if (t && (t as THREE.Texture).isTexture) {
+            const img = (t as THREE.Texture).image as
+              | { width?: number; height?: number }
+              | undefined;
+            const key = `${img?.width ?? 0}x${img?.height ?? 0}`;
+            const e = tex.get(key) ?? { w: img?.width ?? 0, h: img?.height ?? 0, n: 0 };
+            e.n++;
+            tex.set(key, e);
+          }
+        }
+      }
+    });
+    const repeats = [...geos.values()]
+      .filter((g) => !g.instanced && g.n > 1)
+      .sort((a, b) => b.n * b.tris - a.n * a.tris)
+      .slice(0, 10)
+      .map((g) => ({ meshes: g.n, trisPorMesh: g.tris, custo: g.n * g.tris }));
+    console.info(
+      `[perf assets] materiais ${materials} (transparentes ${transparent}) | shadowCasters ${shadowCasters} | texturas ${[...tex.entries()].map(([k, v]) => `${k}x${v.n}`).join(', ') || 'nenhuma'}`,
+    );
+    if (repeats.length) console.table(repeats);
+    else console.info('[perf assets] sem repetição sem-instanciar no top: ok');
+  }
   dispose() {
     this.disposed = true;
     cancelAnimationFrame(this.frame);
+    window.clearTimeout(this.auditTimer);
     this.cleanup.forEach((f) => f());
     this.sound.dispose();
     if (document.pointerLockElement === this.renderer.domElement)
