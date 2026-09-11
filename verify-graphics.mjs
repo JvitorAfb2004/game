@@ -12,5 +12,4 @@ assert(
 );
 assert(!low.shadows && medium.shadows && high.shadows);
 assert(low.rainCount < medium.rainCount && medium.rainCount < high.rainCount);
-assert.equal(getGraphicsProfile('medium').bloomStrength, medium.bloomStrength);
 console.log('graphics profiles: ok');

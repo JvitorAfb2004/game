@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createEnvironment } from './environment';
 import { createCharacter } from './character';
@@ -77,7 +76,6 @@ export class Game {
   camera = new THREE.PerspectiveCamera(68, 1, 0.045, 220);
   renderer: THREE.WebGLRenderer;
   composer: EffectComposer;
-  bloom: UnrealBloomPass;
   env: ReturnType<typeof createEnvironment>;
   characters: ReturnType<typeof createCharacter>[] = [];
   sound = new Soundscape();
@@ -105,7 +103,6 @@ export class Game {
   feetY = 0;
   sprinting = false;
   disposed = false;
-  cinematic = true;
   sensitivity = 1;
   started = false;
   pointerFallback = false;
@@ -142,8 +139,6 @@ export class Game {
     this.env = createEnvironment(THREE, this.scene);
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.24, 0.5, 1.08);
-    this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.bind();
     this.resize();
@@ -158,17 +153,13 @@ export class Game {
     graphics: GraphicsPreset;
     muted: boolean;
     sensitivity: number;
-    cinematic: boolean;
   }) {
     const profile = getGraphicsProfile(o.graphics);
     this.sound.setMute(o.muted);
     this.sensitivity = o.sensitivity;
-    this.cinematic = o.cinematic;
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, profile.pixelRatio));
     this.renderer.shadowMap.enabled = profile.shadows;
     this.env.setShadowMapSize(profile.shadowMapSize);
-    this.bloom.enabled = o.cinematic && profile.bloomStrength > 0;
-    this.bloom.strength = o.cinematic ? profile.bloomStrength : 0;
     this.resize();
   }
   listen<K extends keyof WindowEventMap>(

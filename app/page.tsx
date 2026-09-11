@@ -33,7 +33,6 @@ export default function Home() {
     [settings, setSettings] = useState(false),
     [muted, setMuted] = useState(false),
     [sensitivity, setSensitivity] = useState(1),
-    [cinematic, setCinematic] = useState(true),
     [graphics, setGraphics] = useState<GraphicsPreset>('medium'),
     [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
@@ -63,8 +62,8 @@ export default function Home() {
     };
   }, []);
   useEffect(() => {
-    engine.current?.configure({ muted, sensitivity, cinematic, graphics });
-  }, [muted, sensitivity, cinematic, graphics, ready]);
+    engine.current?.configure({ muted, sensitivity, graphics });
+  }, [muted, sensitivity, graphics, ready]);
   useEffect(() => {
     const f = () => setFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', f);
@@ -249,16 +248,6 @@ export default function Home() {
               id="sound"
               checked={!muted}
               onCheckedChange={(v) => setMuted(!v)}
-            />
-          </div>
-          <div className="setting-row">
-            <label htmlFor="cinematic">
-              Cinematic effects<small>Bloom, lighting and film treatment</small>
-            </label>
-            <Switch
-              id="cinematic"
-              checked={cinematic}
-              onCheckedChange={setCinematic}
             />
           </div>
           <button className="deploy-button" onClick={() => setSettings(false)}>
