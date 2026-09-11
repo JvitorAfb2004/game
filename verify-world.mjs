@@ -47,8 +47,11 @@ assert(instanced.length >= 4, 'static geometry is batched into instanced meshes'
 assert.equal(env.notebooks.length, 6, 'six notebooks');
 for (const n of env.notebooks)
   assert(n.y > 0.8 && n.y < 1.2, 'notebook screen at desk height');
-for (const p of env.spawnPoints)
-  assert(blocked(p.x, p.z), `desk blocks room center ${p.x},${p.z}`);
+for (const p of env.spawnPoints) {
+  const side = Math.sign(p.x);
+  assert(blocked(side * 5.8, p.z), `desk sits near the back wall ${p.x},${p.z}`);
+  assert(!blocked(side * 4.25, p.z), `room center is clear ${p.x},${p.z}`);
+}
 console.log(
   JSON.stringify(
     {

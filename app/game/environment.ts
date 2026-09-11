@@ -65,9 +65,9 @@ export function createEnvironment(
       canvas.height = 64;
       ctx = canvas.getContext('2d');
       const tex = new THREE.CanvasTexture(canvas);
-      mat = new THREE.MeshBasicMaterial({ map: tex });
+      mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
     } else {
-      mat = new THREE.MeshBasicMaterial({ color: 0x0b3d2e });
+      mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 });
     }
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.4), mat);
     mesh.position.set(x, y, z);
@@ -82,12 +82,14 @@ export function createEnvironment(
       setText(t: string) {
         entry.text = t;
         if (!ctx) return;
-        ctx.fillStyle = '#04120d';
-        ctx.fillRect(0, 0, 256, 64);
-        ctx.fillStyle = '#5cffb0';
+        ctx.clearRect(0, 0, 256, 64);
         ctx.font = 'bold 30px monospace';
         ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(120,255,190,0.9)';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = '#d8fff0';
         ctx.fillText(t.slice(0, 14).toUpperCase(), 128, 42);
+        ctx.shadowBlur = 0;
         const m = mat as ThreeType.MeshBasicMaterial;
         if (m.map) m.map.needsUpdate = true;
       },
@@ -302,17 +304,18 @@ export function createEnvironment(
         switch: { x: side * 2.4, y: 1.25, z: swZ },
       });
 
-      // Industrial desk with a notebook, facing the door.
-      const deskX = roomX;
+      // Industrial desk with a notebook, pushed toward the back wall.
+      // Notebook keyboard faces the room interior; the lid/back faces the door.
+      const deskX = side * (halfCorridor + roomDepth - 1.2);
       box(woodMat, deskX, 0.72, center, 0.9, 0.06, 1.6);
       box(frameMat, deskX - 0.35, 0.36, center - 0.7, 0.08, 0.72, 0.08);
       box(frameMat, deskX + 0.35, 0.36, center - 0.7, 0.08, 0.72, 0.08);
       box(frameMat, deskX - 0.35, 0.36, center + 0.7, 0.08, 0.72, 0.08);
       box(frameMat, deskX + 0.35, 0.36, center + 0.7, 0.08, 0.72, 0.08);
-      box(frameMat, deskX - side * 0.05, 0.8, center, 0.3, 0.04, 0.42);
-      box(ledMat, deskX + side * 0.1, 0.99, center, 0.03, 0.34, 0.42);
+      box(frameMat, deskX + side * 0.02, 0.78, center, 0.34, 0.03, 0.42);
+      box(ledMat, deskX - side * 0.28, 0.99, center, 0.03, 0.34, 0.42);
       collider(deskX, center, 1.0, 1.7);
-      notebooks.push({ roomId, x: deskX + side * 0.1, y: 0.99, z: center });
+      notebooks.push({ roomId, x: deskX - side * 0.28, y: 0.99, z: center });
       makePlaque(
         roomId,
         side * (halfCorridor - 0.04),
