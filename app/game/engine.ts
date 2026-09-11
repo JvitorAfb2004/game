@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createEnvironment } from './environment';
 import { createCharacter } from './character';
 import { getGraphicsProfile, type GraphicsPreset } from './graphics';
@@ -123,6 +124,12 @@ export class Game {
     this.camera.rotation.order = 'YXZ';
     this.scene.add(this.camera);
     this.env = createEnvironment(THREE, this.scene);
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.scene.environment = pmrem.fromScene(
+      new RoomEnvironment(),
+      0.04,
+    ).texture;
+    pmrem.dispose();
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.24, 0.5, 1.08);
@@ -361,6 +368,17 @@ export class Game {
     }
     return moving;
   }
+  updateDoors(dt: number) {
+    for (const d of this.env.doors) {
+      const dist = Math.hypot(
+        this.camera.position.x - d.x,
+        this.camera.position.z - d.z,
+      );
+      const target = dist < 3 ? d.side * 1.55 : 0;
+      d.group.rotation.y +=
+        (target - d.group.rotation.y) * (1 - Math.exp(-dt * 9));
+    }
+  }
   emit() {
     this.host.dataset.fps = String(this.state.fps);
     this.host.dataset.position = `${this.camera.position.x.toFixed(2)},${this.camera.position.z.toFixed(2)}`;
@@ -377,6 +395,7 @@ export class Game {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.elapsed += dt;
     this.env.update(dt, this.elapsed);
+    this.updateDoors(dt);
     let moving = 0;
     if (this.state.mode === 'playing') {
       this.liveTime += dt;
