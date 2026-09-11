@@ -72,10 +72,11 @@ pixel ratio, shadow-map usage and size, bloom enablement/intensity, and rain
 particle count. The cinematic toggle remains an independent upper bound: when
 disabled, bloom is off regardless of the graphics preset.
 
-The environment receives the chosen rain count at construction time. Existing
+The environment allocates the maximum rain buffer once and exposes the active
+rain count so presets can change it without rebuilding the scene. Existing
 world geometry and collision data remain unchanged so gameplay and tests stay
-stable. Presets apply immediately to renderer/post-processing values; the rain
-count is selected when the game engine is initialized.
+stable. Presets apply immediately to renderer, post-processing, and active
+rain-particle values.
 
 ## Success Criteria
 
