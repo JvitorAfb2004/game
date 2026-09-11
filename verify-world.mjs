@@ -6,6 +6,7 @@ const scene = new THREE.Scene();
 const env = createEnvironment(THREE, scene);
 
 assert.equal(env.spawnPoints.length, 12, 'twelve room characters');
+assert.equal(env.doors.length, 12, 'twelve hinged doors');
 assert(env.colliders.length > 0, 'office has walls');
 
 const blocked = (x, z, r = 0.32) =>
@@ -18,7 +19,8 @@ for (let z = 13; z > -36; z -= 0.5)
 
 for (const p of env.spawnPoints) {
   const side = Math.sign(p.x);
-  assert(!blocked(side * 1.6, p.z), `room entrance open at ${p.x},${p.z}`);
+  assert(!blocked(side * 1.6, p.z), `door opening passable at ${p.x},${p.z}`);
+  assert(blocked(side * 1.5, p.z + 2), `glass blocks beside the door at ${p.x},${p.z}`);
 }
 
 env.update(0.016, 1);
