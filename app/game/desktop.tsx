@@ -115,6 +115,35 @@ export function Notepad({ computerId }: { computerId: string }) {
   );
 }
 
+export function PlaqueEditor({
+  roomId,
+  initial,
+  onSave,
+}: {
+  roomId: string;
+  initial: string;
+  onSave: (text: string) => void;
+}) {
+  const [text, setText] = useState(initial);
+  return (
+    <div className="xp-app">
+      <div className="xp-app-bar">Placa da sala — {roomId}</div>
+      <label>
+        Nome exibido no LED
+        <input
+          value={text}
+          maxLength={14}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </label>
+      <button type="button" onClick={() => onSave(text)}>
+        Aplicar
+      </button>
+      <small>até 14 caracteres</small>
+    </div>
+  );
+}
+
 export function Calculator() {
   const [display, setDisplay] = useState('0');
   const [acc, setAcc] = useState<number | null>(null);

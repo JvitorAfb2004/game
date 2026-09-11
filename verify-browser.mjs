@@ -160,6 +160,22 @@ try {
   out.afterEsc = { ...afterEsc, xpGone };
   if (afterEsc.mode !== 'playing' || !xpGone) fail('esc-failed', out.afterEsc);
 
+  // Plaque + light replication (local apply path).
+  const plaqueText = await page.evaluate(() => {
+    const g = document.querySelector('.scene').__game;
+    g.applyPlaque('W1', 'TESTE');
+    return g.env.plaques.find((p) => p.roomId === 'W1').text;
+  });
+  out.plaqueText = plaqueText;
+  if (plaqueText !== 'TESTE') fail('plaque-not-applied', { plaqueText });
+  const lightOn = await page.evaluate(() => {
+    const g = document.querySelector('.scene').__game;
+    g.applyLight('W1', true);
+    return g.env.rooms.find((r) => r.roomId === 'W1').on;
+  });
+  out.lightOn = lightOn;
+  if (lightOn !== true) fail('light-not-applied', { lightOn });
+
   // E key path (already back in play after ESC).
   await page.evaluate(() => {
     const g = document.querySelector('.scene').__game;

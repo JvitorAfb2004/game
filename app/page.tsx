@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import type { Game, Snapshot } from './game/engine';
 import type { GraphicsPreset } from './game/graphics';
 import { api } from './api';
-import { Notepad, Calculator } from './game/desktop';
+import { Notepad, Calculator, PlaqueEditor } from './game/desktop';
 
 const initial: Snapshot = {
   mode: 'menu',
@@ -57,7 +57,8 @@ export default function Home() {
   const [players, setPlayers] = useState<import('./game/net').NetPlayer[]>([]);
   const [netOnline, setNetOnline] = useState(true);
   const [welcome, setWelcome] = useState<import('./game/net').Welcome | null>(null);
-  const [xpApp, setXpApp] = useState<'home' | 'notepad' | 'calc'>('home');
+  const [xpApp, setXpApp] = useState<'home' | 'notepad' | 'calc' | 'plaque'>('home');
+  const [plaquesText, setPlaquesText] = useState<Record<string, string>>({});
   useEffect(() => {
     let disposed = false;
     void import('./game/engine')
@@ -95,13 +96,17 @@ export default function Home() {
       n.onPlayers = setPlayers;
       n.onWelcome = (w) => {
         setWelcome(w);
+        setPlaquesText(w.plaques);
         engine.current?.setRemotePlayers(w.players);
         for (const [roomId, text] of Object.entries(w.plaques))
           engine.current?.applyPlaque(roomId, text);
         for (const [roomId, on] of Object.entries(w.lights))
           engine.current?.applyLight(roomId, on);
       };
-      n.onPlaque = (roomId, text) => engine.current?.applyPlaque(roomId, text);
+      n.onPlaque = (roomId, text) => {
+        setPlaquesText((prev) => ({ ...prev, [roomId]: text }));
+        engine.current?.applyPlaque(roomId, text);
+      };
       n.onLight = (roomId, on) => engine.current?.applyLight(roomId, on);
       n.connect(session.token);
       if (engine.current) {
@@ -245,6 +250,9 @@ export default function Home() {
             <button type="button" onClick={() => setXpApp('calc')}>
               <span aria-hidden="true">🧮</span>Calculadora
             </button>
+            <button type="button" onClick={() => setXpApp('plaque')}>
+              <span aria-hidden="true">🪧</span>Placa da sala
+            </button>
             <button type="button" onClick={() => setXpApp('home')}>
               <span aria-hidden="true">🖥</span>Área de trabalho
             </button>
@@ -253,6 +261,14 @@ export default function Home() {
             <Notepad computerId={state.desktopRoom} />
           )}
           {xpApp === 'calc' && <Calculator />}
+          {xpApp === 'plaque' && state.desktopRoom && (
+            <PlaqueEditor
+              key={plaquesText[state.desktopRoom] ?? ''}
+              roomId={state.desktopRoom}
+              initial={plaquesText[state.desktopRoom] ?? ''}
+              onSave={(text) => net.current?.plaque(state.desktopRoom!, text)}
+            />
+          )}
           <div className="xp-taskbar">
             <button
               type="button"
