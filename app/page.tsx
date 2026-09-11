@@ -35,6 +35,8 @@ export default function Home() {
     [muted, setMuted] = useState(false),
     [sensitivity, setSensitivity] = useState(1),
     [graphics, setGraphics] = useState<GraphicsPreset>('medium'),
+    [startOpen, setStartOpen] = useState(false),
+    [clock, setClock] = useState(''),
     [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
     let disposed = false;
@@ -70,6 +72,19 @@ export default function Home() {
     document.addEventListener('fullscreenchange', f);
     return () => document.removeEventListener('fullscreenchange', f);
   }, []);
+  useEffect(() => {
+    if (!state.desktop) return;
+    const tick = () =>
+      setClock(
+        new Date().toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      );
+    tick();
+    const id = window.setInterval(tick, 10000);
+    return () => window.clearInterval(id);
+  }, [state.desktop]);
   const active = state.mode === 'playing';
   const start = () => {
     setSettings(false);
@@ -93,6 +108,47 @@ export default function Home() {
       {active && <div className="reticle" aria-hidden="true" />}
       {active && state.prompt && (
         <output className="interact-toast">{state.prompt}</output>
+      )}
+      {state.desktop && (
+        <dialog className="xp" open aria-label="Área de trabalho">
+          <div className="xp-icons">
+            <button type="button">
+              <span aria-hidden="true">🖥</span>Meu computador
+            </button>
+            <button type="button">
+              <span aria-hidden="true">🗑</span>Lixeira
+            </button>
+            <button type="button">
+              <span aria-hidden="true">🌐</span>Internet
+            </button>
+          </div>
+          <div className="xp-taskbar">
+            <button
+              type="button"
+              className="xp-start"
+              onClick={() => setStartOpen(!startOpen)}
+            >
+              iniciar
+            </button>
+            {startOpen && (
+              <div className="xp-menu">
+                <button type="button">Programas</button>
+                <button type="button">Documentos</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartOpen(false);
+                    engine.current?.exitDesktop();
+                  }}
+                >
+                  Encerrar sessão
+                </button>
+              </div>
+            )}
+            <div className="xp-clock">{clock}</div>
+          </div>
+          <div className="xp-hint">ESC para voltar ao jogo</div>
+        </dialog>
       )}
       <header className="topbar">
         <div className="wordmark">
@@ -135,7 +191,7 @@ export default function Home() {
         </div>
       </header>
       {!active && <div className="menu-shade" />}
-      {!active && !settings && (
+      {!active && !settings && !state.desktop && (
         <section className="mission-menu">
           <div className="mission-kicker">
             <span /> {state.mode === 'paused' ? 'VISITA PAUSADA' : 'WALKTHROUGH · EXPLORAÇÃO'}
