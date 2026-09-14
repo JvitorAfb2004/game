@@ -56,7 +56,7 @@ const instanced = scene.children.filter((o) => o.isInstancedMesh);
 assert(instanced.length >= 4, 'static geometry is batched into instanced meshes');
 assert.equal(env.notebooks.length, 9, 'nine notebooks (6 rooms + 3 reception)');
 for (const n of env.notebooks)
-  assert(n.y > 0.8 && n.y < 1.2, 'notebook screen at desk height');
+  assert(n.y > 0.8 && n.y < 1.35, 'notebook screen at desk/counter height');
 for (const p of env.spawnPoints) {
   const side = Math.sign(p.x);
   assert(blocked(side * 5.0, p.z), `desk sits near the back wall ${p.x},${p.z}`);

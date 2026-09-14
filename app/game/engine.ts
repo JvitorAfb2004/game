@@ -279,8 +279,10 @@ export class Game {
         cctx.fillStyle = '#122a22'; cctx.fillRect(0, 280, 512, 40); cctx.fillStyle = '#7fd6c2'; cctx.font = 'bold 16px monospace'; cctx.fillText('● CODE • 60', 14, 305);
         codeTex2 = new THREE.CanvasTexture(cc); codeTex2.colorSpace = THREE.SRGBColorSpace;
       }
-      const kbMat2 = new THREE.MeshStandardMaterial({ map: kbTex2 ?? undefined, color: kbTex2 ? 0xffffff : 0x2a2e33, roughness: 0.75 });
-      const codeBase = new THREE.MeshStandardMaterial({ map: codeTex2 ?? undefined, color: codeTex2 ? 0xffffff : 0x0b1e2e, emissive: 0x0a2a3a, emissiveIntensity: codeTex2 ? 0.32 : 0, roughness: 0.45 });
+      const kbMat2 = new THREE.MeshStandardMaterial({ color: kbTex2 ? 0xffffff : 0x2a2e33, roughness: 0.75 });
+      if (kbTex2) kbMat2.map = kbTex2;
+      const codeBase = new THREE.MeshStandardMaterial({ color: codeTex2 ? 0xffffff : 0x0b1e2e, emissive: 0x0a2a3a, emissiveIntensity: codeTex2 ? 0.32 : 0, roughness: 0.45 });
+      if (codeTex2) codeBase.map = codeTex2;
       for (const st of this.env.devStations ?? []) {
         const grp = new THREE.Group(); grp.position.set(st.mx, 0.78, st.z); grp.rotation.y = st.ry;
         const shadow = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.46), shadowMat);
@@ -695,12 +697,18 @@ export class Game {
 
     this.drawTVScreen();
   }
-  // ponytail: NPC respeita porta fechada igual ao jogador (espera abrir; móveis ignora como antes)
+  // ponytail: NPC respeita porta fechada E móveis (não atravessa mesa/balcão); raio menor que o do jogador
+  npcBlocked(x: number, z: number, r = 0.26) {
+    if (this.doorBlocked(x, z, r, 0)) return true;
+    return this.env.colliders.some(
+      (c) => x + r > c.minX && x - r < c.maxX && z + r > c.minZ && z - r < c.maxZ,
+    );
+  }
   npcStep(g: { position: { x: number; z: number } }, dx: number, dz: number) {
     const nx = g.position.x + dx;
-    if (!this.doorBlocked(nx, g.position.z, 0.32, 0)) g.position.x = nx;
+    if (!this.npcBlocked(nx, g.position.z)) g.position.x = nx;
     const nz = g.position.z + dz;
-    if (!this.doorBlocked(g.position.x, nz, 0.32, 0)) g.position.z = nz;
+    if (!this.npcBlocked(g.position.x, nz)) g.position.z = nz;
   }
   updateCopaVapor(dt: number) {
     if (!this.copaVapor) return;
@@ -766,11 +774,12 @@ export class Game {
       speed,
     );
     this.velocity.lerp(v, 1 - Math.exp(-dt * 13));
+    // agachado tem raio menor (passa por vãos estreitos)
     this.move(
       this.camera.position,
       this.velocity.x * dt,
       this.velocity.z * dt,
-      0.32,
+      0.32 - this.crouchLerp * 0.10,
       this.feetY,
     );
     let support = 0;

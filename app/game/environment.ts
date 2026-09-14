@@ -207,8 +207,10 @@ export function createEnvironment(
     cctx.fillStyle = '#122a22'; cctx.fillRect(0, 280, 512, 40); cctx.fillStyle = '#7fd6c2'; cctx.font = 'bold 16px monospace'; cctx.fillText('● CODE • 60 FPS', 14, 305);
     codeTex = new THREE.CanvasTexture(cc); codeTex.colorSpace = THREE.SRGBColorSpace; codeTex.needsUpdate = true;
   }
-  const kbMat = new THREE.MeshStandardMaterial({ map: kbTex ?? undefined, color: kbTex ? 0xffffff : 0x2a2e33, roughness: 0.75 });
-  const laptopCodeMatBase = new THREE.MeshStandardMaterial({ map: codeTex ?? undefined, color: codeTex ? 0xffffff : 0x0b1e2e, emissive: codeTex ? 0x0a2a3a : 0x000000, emissiveIntensity: codeTex ? 0.32 : 0, roughness: 0.45 });
+  const kbMat = new THREE.MeshStandardMaterial({ color: kbTex ? 0xffffff : 0x2a2e33, roughness: 0.75 });
+  if (kbTex) kbMat.map = kbTex;
+  const laptopCodeMatBase = new THREE.MeshStandardMaterial({ color: codeTex ? 0xffffff : 0x0b1e2e, emissive: codeTex ? 0x0a2a3a : 0x000000, emissiveIntensity: codeTex ? 0.32 : 0, roughness: 0.45 });
+  if (codeTex) laptopCodeMatBase.map = codeTex;
   // ponytail: helper laptop procedural com fallback texturas — 70° hinge, sombra
   const makeLaptop = (x: number, y: number, z: number, ry: number) => {
     const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry;
