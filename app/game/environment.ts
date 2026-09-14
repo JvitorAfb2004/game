@@ -102,23 +102,6 @@ export function createEnvironment(
     return entry;
   };
 
-  const loader = typeof document !== 'undefined' ? new THREE.TextureLoader() : null;
-  const applyTex = (mat: ThreeType.MeshStandardMaterial, url: string, repeat: [number, number]) => {
-    if (!loader) return;
-    loader.load(
-      url,
-      (t) => {
-        t.wrapS = t.wrapT = THREE.RepeatWrapping;
-        t.repeat.set(repeat[0], repeat[1]);
-        t.colorSpace = THREE.SRGBColorSpace;
-        mat.map = t;
-        mat.color.set(0xffffff);
-        mat.needsUpdate = true;
-      },
-      undefined,
-      () => {},
-    );
-  };
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x9aa0a0,
     roughness: 0.92,
@@ -135,7 +118,6 @@ export function createEnvironment(
     color: 0x5f6668,
     roughness: 0.95,
   });
-  applyTex(floorMat, '/tex/floor_tiles_tan_small.png', [6, 9]);
   const ceilMat = new THREE.MeshStandardMaterial({
     color: 0xd7dad8,
     roughness: 0.96,
@@ -212,7 +194,7 @@ export function createEnvironment(
   const makeLaptop = (x: number, y: number, z: number, ry: number) => {
     const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry;
     const shadow = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.46), laptopShadowMat);
-    shadow.rotation.x = -Math.PI / 2; shadow.position.set(0, -y + 0.02, 0); g.add(shadow);
+    shadow.rotation.x = -Math.PI / 2; shadow.position.set(0, 0.001, 0); g.add(shadow);
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.35), laptopBaseMat);
     base.position.set(0, 0.02, 0); base.castShadow = true; base.receiveShadow = true; g.add(base);
     const kbPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.30), kbMat);
@@ -792,8 +774,8 @@ export function createEnvironment(
     for (let ri = 0; ri < roomCenters.length; ri++) {
       const center = roomCenters[ri];
       if (side === 1 && ri === 0) continue; // sala dev tem mesas próprias
-      // cadeira encaixada sob a mesa (colisor baixo, não trava a passagem)
-      const chairX = side * (xFar - 1.6);
+      // cadeira encaixada sob a mesa (fica dentro do colisor da mesa)
+      const chairX = side * (xFar - 2.15);
       const chair = new THREE.Group();
       const seat = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.44), chairMat);
       seat.position.y = 0.45; seat.castShadow = true; chair.add(seat);
@@ -804,7 +786,7 @@ export function createEnvironment(
         leg.position.set(lx, 0.225, lz); chair.add(leg);
       }
       chair.position.set(chairX, 0, center);
-      chair.rotation.y = side === 1 ? Math.PI : 0;
+      chair.rotation.y = side === 1 ? Math.PI / 2 : -Math.PI / 2;
       scene.add(chair);
       collider(chairX, center, 0.5, 0.5, 0.5);
       // planta no canto (vaso + folhagem), afastada das paredes

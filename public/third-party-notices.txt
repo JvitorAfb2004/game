@@ -4,7 +4,7 @@ BLACKWATER uses the following third-party software. Each package retains its own
 
 The shadcn notice applies to the copied UI components and shared styles. Transitive runtime entries are limited to packages confirmed in the module or dependency graph used by the game; this is not an inventory of development tools.
 
-Kenney assets (public/characters/*.fbx, public/tex/*) are CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/ (Blocky Characters, Retro Textures Fantasy, UI Pack Sci-Fi — kenney.nl). No attribution required.
+Kenney Blocky Characters (public/characters/*.fbx, texture-*.png) are CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/ (kenney.nl). No attribution required.
 
 ## shadcn — 4.18.0
 

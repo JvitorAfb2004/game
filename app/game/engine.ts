@@ -286,7 +286,7 @@ export class Game {
       for (const st of this.env.devStations ?? []) {
         const grp = new THREE.Group(); grp.position.set(st.mx, 0.78, st.z); grp.rotation.y = st.ry;
         const shadow = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.46), shadowMat);
-        shadow.rotation.x = -Math.PI / 2; shadow.position.set(0, -0.76, 0); grp.add(shadow);
+        shadow.rotation.x = -Math.PI / 2; shadow.position.set(0, 0.001, 0); grp.add(shadow);
         const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.35), baseMat);
         base.position.set(0, 0.02, 0); base.castShadow = true; base.receiveShadow = true; grp.add(base);
         const kbPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.30), kbMat2);
