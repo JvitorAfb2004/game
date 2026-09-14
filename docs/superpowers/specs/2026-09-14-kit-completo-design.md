@@ -1,8 +1,8 @@
-# Kit Completo — Escritório Real (Portas, Luz, Móveis, Física)
+# Kit Completo — Escritório Real (Portas, Luz, Móveis, Física + Personagens)
 
 **Data:** 2026-09-14
-**Status:** Aprovado (seções 1-5 ok)
-**Escopo:** Vida no escritório (opção B, caminho 2) — sem gavetas interativas, sem dia/noite
+**Status:** Aprovado (seções 1-6 ok)
+**Escopo:** Vida no escritório (opção B, caminho 2) + personagens blocky escolhíveis — sem gavetas interativas, sem dia/noite
 
 ## 1. Objetivo
 Tornar as salas alugáveis críveis: porta trancada não abre, interior claro apesar das texturas, móveis 3D reais com colisão sólida, sem atravessar paredes/móveis para players e NPCs. Manter 60fps e 35 testes verdes.
@@ -50,16 +50,26 @@ Tornar as salas alugáveis críveis: porta trancada não abre, interior claro ap
 - **NPCs:** `npcStep()` já respeita `doorBlocked`; manter; `updateHired`/`updateBots` continuam com `leaving` e `poseFig`
 - **Teste:** player não atravessa mesa a 0.3m; agachado passa em vão 0.9m (se houver); NPC espera porta abrir; 35 testes de company permanecem verdes
 
-## 7. Seção 5 — Testes e rollout
-- **Flag:** `ENABLE_OFFICE_KIT` default true; se GLB falhar, fallback caixa mantém jogo jogável
-- **Migração:** sem migração de save; `ownedRooms` padrão `['W1','E1']` já serializado
-- **Build:** `vite build` e `tsc -p server/tsconfig.json` sem erros; `npm run server:test` 35/35
-- **Verificação:** `verify-world.mjs` checa colisores; adicionar asserts para `lockedRooms` e intensidade de luz
+## 7. Seção 5 — Personagens blocky (escolha + aleatório)
+- **Problema:** hoje `makeRemote` gera caixa colorida; cadastro com `FIGURE_VARIANTS` (azul/verde/vermelho/roxo) existe mas não é usado no lobby/sala
+- **Modelos:** Kenney Blocky Characters (CC0) — `character-a/e/i/m.fbx` (4 de 18) + `texture-a..r.png` já em `public/characters/`; fallback humanoide procedural atual (`FIG_*_GEO` + `poseFig`)
+- **Fluxo cadastro:** `POST /auth/register {username,password,character}` valida `enum['azul','verde','vermelho','roxo']`, salva em `users.character`, retorna em `login`/`register` e no `welcome` (`NetPlayer.character`); `page.tsx` login mostra 4 cards clicáveis só em `register`
+- **Fluxo sala:** `WS ?room=CODE&token` → `welcome.character` do dono já vem; demais players recebem `character` via `snapshotPlayers`; NPCs usam `variantForId(id)` (hash estável) para variar sem escolher
+- **Render:** `engine.ts: makeRemote(username, variantId)` tenta `FBXLoader` async para `/characters/character-<letra>.fbx`; se ok, clona `Group` FBX escalado 0.012×, aplica `shirt/pants/skin` nos materiais; se falhar/pending usa humanoide low-poly atual; `poseFig` continua em ambos
+- **Lobby:** ao `Criar sala` o criador já entra com seu `character`; convidado mantém o seu; sem re-escolha por sala nesta spec
+- **Teste:** registrar `azul` → `welcome.character==='azul'`; NPC `bot-123` sempre mesma cor; sem FBX não quebra (procedural)
+- **Migrado:** falta ligar `character` no `setRemotePlayers` para remotos e em `setCompanyBots/Devs/Receps/Hired` para NPCs (hash)
 
-## 8. Fora de escopo desta spec
+## 8. Seção 6 — Testes e rollout
+- **Flag:** `ENABLE_OFFICE_KIT` default true; se GLB/FBX falhar, fallback caixa/humanóide mantém jogo jogável
+- **Migração:** sem migração de save; `ownedRooms` padrão `['W1','E1']` já serializado; `users.character` default `'azul'` via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
+- **Build:** `vite build` e `tsc -p server/tsconfig.json` sem erros; `npm run server:test` 35/35
+- **Verificação:** `verify-world.mjs` checa colisores; adicionar asserts para `lockedRooms`, intensidade de luz e `character` no `welcome`
+
+## 9. Fora de escopo desta spec
 Gavetas que abrem, dia/noite, chuva, café/bebedouro interativo, ar-condicionado, voz proximidade. Ficam para specs seguintes.
 
-## 9. Riscos e mitigação
-- GLB pesa build: Draco + instancing + LOD, lazy load após `start()`
+## 10. Riscos e mitigação
+- GLB/FBX pesa build: Draco + LOD, lazy load após `start()`, FBX só em `characters/` (não no bundle)
 - Luz mais forte estoura: testar com `ACESFilmicToneMapping` exposure 1.05 já existente
 - Colisores extras derrubam fps: manter AABB 2D, sem Rapier
