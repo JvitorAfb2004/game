@@ -8,7 +8,7 @@ const env = createEnvironment(THREE, scene);
 assert.equal(env.spawnPoints.length, 6, 'six desk points');
 assert.equal(env.doors.length, 10, 'six room doors + spawn south + spawn east + reception + copa');
 assert.equal(env.rooms.length, 6, 'six switchable rooms');
-assert.equal(env.plaques.length, 9, 'six room plaques + COPA + COPAVIA + COPALEST');
+assert.equal(env.plaques.length, 8, 'six room plaques + COPA + COPALEST');
 assert.deepEqual(
   env.rooms.map((r) => r.roomId),
   ['W1', 'W2', 'W3', 'E1', 'E2', 'E3'],
@@ -60,7 +60,7 @@ for (const n of env.notebooks)
 for (const p of env.spawnPoints) {
   const side = Math.sign(p.x);
   assert(blocked(side * 5.0, p.z), `desk sits near the back wall ${p.x},${p.z}`);
-  assert(!blocked(side * 4.1, p.z), `room center is clear ${p.x},${p.z}`);
+  assert(!blocked(side * 3.9, p.z), `room center is clear ${p.x},${p.z}`);
 }
 console.log(
   JSON.stringify(

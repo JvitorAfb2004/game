@@ -153,6 +153,7 @@ export default function Home() {
     [settings, setSettings] = useState(false),
     [muted, setMuted] = useState(false),
     [sensitivity, setSensitivity] = useState(1),
+    [renderDistance, setRenderDistance] = useState(1),
     [graphics, setGraphics] = useState<GraphicsPreset>('low'),
     [startOpen, setStartOpen] = useState(false),
     [clock, setClock] = useState(''),
@@ -416,8 +417,8 @@ export default function Home() {
     };
   }, [session, ready, roomCode, applyPlayers]);
   useEffect(() => {
-    engine.current?.configure({ muted, sensitivity, graphics });
-  }, [muted, sensitivity, graphics, ready]);
+    engine.current?.configure({ muted, sensitivity, graphics, renderDistance });
+  }, [muted, sensitivity, graphics, renderDistance, ready]);
   useEffect(() => {
     const f = () => setFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', f);
@@ -1208,6 +1209,17 @@ export default function Home() {
             step={0.1}
             value={[sensitivity]}
             onValueChange={(v) => setSensitivity(Array.isArray(v) ? v[0] : v)}
+          />
+          <label>
+            Render distance <b>{Math.round(renderDistance * 100)}%</b>
+          </label>
+          <Slider
+            aria-label="Render distance"
+            min={0.25}
+            max={1}
+            step={0.05}
+            value={[renderDistance]}
+            onValueChange={(v) => setRenderDistance(Array.isArray(v) ? v[0] : v)}
           />
           <div className="setting-row">
             <label htmlFor="sound">Audio enabled</label>

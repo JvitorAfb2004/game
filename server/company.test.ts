@@ -38,7 +38,7 @@ void test('contrata, aloca e freela escreve linhas com o tempo', () => {
   });
   assert.equal(company.assign(company.hired[0].id, 'p1'), 'ok');
   company.machines.push({ id: 'm0', where: 'st:0', broken: false }); // estação do 1º dev com PC
-  company.tick(60); // 60 game-min = 1h de jogo -> 200 linhas
+  company.tick(6); // 60 game-min = 1h de jogo -> 200 linhas
   const p = company.projects[0];
   assert(p.linesDone > 190 && p.linesDone <= 400, `linhas=${p.linesDone}`);
   assert.equal(company.deliver('p1'), 'projeto incompleto');
@@ -56,14 +56,14 @@ void test('freela não rende de noite nem no almoço', () => {
     linesTotal: 1000, linesDone: 0, dueAbs: 99, status: 'active',
   });
   company.minute = 22 * 60;
-  company.tick(1);
+  company.tick(0.1);
   assert.equal(company.projects[0].linesDone, 0);
   company.minute = 12 * 60 + 30; // almoço
-  company.tick(0.25); // 15 game-min dentro do almoço
+  company.tick(0.025); // 15 game-min dentro do almoço
   assert.equal(company.projects[0].linesDone, 0);
   company.minute = 9 * 60;
   company.machines.push({ id: 'm0', where: 'st:0', broken: false });
-  company.tick(60); // 1h de jogo
+  company.tick(6); // 1h de jogo
   assert(company.projects[0].linesDone > 90, 'rendeu de manhã');
 });
 
@@ -76,7 +76,7 @@ void test('jogador codando soma junto e entrega libera restante', () => {
     linesTotal: 100, linesDone: 0, dueAbs: 99, status: 'active',
   });
   company.work('u1', 'p2', 'dono');
-  for (let i = 0; i < 60; i++) company.tick(1); // 60 game-min = 1h de jogo (100 linhas/h de dono)
+  for (let i = 0; i < 60; i++) company.tick(0.1); // 60 game-min = 1h de jogo (100 linhas/h de dono)
   company.work('u1', null);
   const p = company.projects.find((x) => x.id === 'p2')!;
   assert(p.linesDone >= 99, `linhas=${p.linesDone}`);
@@ -97,11 +97,11 @@ void test('salário atrasado demite e vira dívida com juros', () => {
   assert.equal(company.paySalary('h1'), 'já pago este mês');
   // avança dia a dia até passar do dia 5 do mês seguinte (1440 game-min = 1 dia)
   const target = company.absDay + (30 - company.day) + 6;
-  while (company.absDay < target) company.tick(1440);
+  while (company.absDay < target) company.tick(144);
   assert.equal(company.hired.length, 0);
   assert.equal(company.debts.length, 1);
   const before = company.debts[0].amount;
-  company.tick(1440); // +1 dia de juros
+  company.tick(144); // +1 dia de juros
   assert(company.debts[0].amount > before, 'juros aplicados');
 });
 
@@ -132,7 +132,7 @@ void test('cliente volta no prazo e busca o projeto', () => {
     id: 'pp', client: 'Lia', title: 'Site da loja', value: 3000, received: 1500,
     linesTotal: 100, linesDone: 100, dueAbs: company.absDay, status: 'active',
   });
-  company.tick(1);
+  company.tick(0.1);
   const back = company.bots.find((b) => b.stage === 'pickup');
   assert(back, 'voltou no prazo');
   company.attend(back!.id);
@@ -154,7 +154,7 @@ void test('aceitar serviço fora do escopo gera denúncia e multa', () => {
   assert.equal(company.pendingFines.length, 1);
   const fine = company.pendingFines[0].amount;
   assert(fine >= 10000 && fine <= 50000, `multa ${fine} entre 10k e 50k`);
-  while (company.absDay <= company.pendingFines[0]?.dueAbs) company.tick(1440); // 1 dia por tick
+  while (company.absDay <= company.pendingFines[0]?.dueAbs) company.tick(144); // 1 dia por tick
   const debt = company.debts.find((d) => d.who.includes('Paulo'));
   assert(debt, 'virou dívida');
   assert(company.notifs.some((n) => n.text.includes('Multa')), 'notificou');
@@ -173,11 +173,11 @@ void test('projeto 100% libera o dev e pausa congela o tempo', () => {
     linesTotal: 100, linesDone: 0, dueAbs: 99, status: 'active',
   });
   company.machines.push({ id: 'm0', where: 'st:0', broken: false });
-  company.tick(60); // 1h de jogo: 100 linhas de junior
+  company.tick(6); // 1h de jogo: 100 linhas de junior
   assert.equal(company.hired[0].projectId, null, 'dev liberado aos 100%');
   const m = company.minute;
   company.setPaused(true);
-  company.tick(60);
+  company.tick(6);
   assert.equal(company.minute, m, 'tempo congelado');
   assert(company.snapshot().paused, 'snapshot marca pausa');
   company.setPaused(false);
@@ -227,7 +227,7 @@ void test('recepcionista no balcão chama e fecha sozinha', () => {
     persona: 'normal', aiSay: '', history: [], bravo: 0, lastTalk: 0,
   });
   assert.equal(company.post('r1', 1), 'ok');
-  company.tick(1);
+  company.tick(0.1);
   assert.equal(company.bots.find((b) => b.id === 'b-w'), undefined, 'chamou, atendeu e fechou sozinha');
   assert.equal(company.projects.length, 1, 'virou projeto');
   assert.equal(company.assign('r1', 'px'), 'só devs vão a projetos (gerente se vira, recepcionista vai ao balcão)');
@@ -240,7 +240,7 @@ void test('notebook: compra, chega, instala e dev rende', () => {
   assert.equal(company.buyNotebook(), 'ok');
   assert.equal(company.balance, bal - 3500);
   assert.equal(company.deliveries.length, 1);
-  company.tick(24 * 60); // 1 dia de jogo
+  company.tick(144); // 1 dia de jogo
   assert.equal(company.packages.length, 1, 'caixa no spawn');
   const box = company.packages[0].id;
   assert.equal(company.claimBox(box, 'u1', 'dono'), 'ok');
@@ -263,10 +263,10 @@ void test('dev sem notebook não rende; com notebook rende', () => {
     id: 'p5', client: 'Mila', title: 'App', value: 3000, received: 1500,
     linesTotal: 500, linesDone: 0, dueAbs: 99, status: 'active',
   });
-  company.tick(1);
+  company.tick(0.1);
   assert.equal(company.projects[0].linesDone, 0, 'sem PC parado');
   company.machines.push({ id: 'm0', where: 'st:0', broken: false });
-  company.tick(60); // 1h de jogo
+  company.tick(6); // 1h de jogo
   assert(company.projects[0].linesDone > 90, 'com PC rendeu');
 });
 
@@ -306,10 +306,10 @@ void test('sala sem máquina não abre PC; instala e quebra', () => {
   assert.equal(m.broken, true, 'ainda quebrada: técnico a caminho');
   assert.equal(company.techs.length, 1, 'técnico spawnou');
   assert.equal(company.repairMachine('mw'), 'técnico já a caminho');
-  company.tick(60); // +60 game-min: técnico chega
+  company.tick(6); // +60 game-min: técnico chega
   assert.equal(company.techs[0].state, 'fixing', 'chegou e conserta');
   assert.equal(m.broken, true, 'ainda consertando');
-  company.tick(120); // +120 game-min (ainda de manhã): pronto
+  company.tick(12); // +120 game-min (ainda de manhã): pronto
   assert.equal(m.broken, false, 'consertada após o serviço');
   assert.equal(company.techs.length, 0, 'técnico foi embora');
   assert.equal(company.roomsPC()['W2'], true);
@@ -322,15 +322,15 @@ void test('sala sem máquina não abre PC; instala e quebra', () => {
   assert.equal(company.techs[0].state, 'collecting');
   assert(company.machines.some((m) => m.id === 'mw'), 'máquina fica até a coleta');
   company.minute = 8 * 60;
-  company.tick(60); // +60 game-min: chegou p/ buscar
-  company.tick(120); // +120 game-min: levou + pagou sucata
+  company.tick(6); // +60 game-min: chegou p/ buscar
+  company.tick(12); // +120 game-min: levou + pagou sucata
   assert(!company.machines.some((m) => m.id === 'mw'), 'máquina levada');
   assert.equal(company.roomsPC()['W2'], false, 'sala sem PC após coleta');
   assert.equal(company.techs.length, 0, 'técnico foi embora com a caixa');
   assert(company.balance > balBefore, 'sucata paga (+10%)');
   // nova compra instala em estação
   assert.equal(company.buyNotebook(), 'ok');
-  company.tick(24 * 60);
+  company.tick(144);
   const fresh = company.packages[company.packages.length - 1].id;
   assert.equal(company.claimBox(fresh, 'u1', 'dono'), 'ok');
   assert.equal(company.placeBox(fresh, 3, null, 'u1'), 'ok');
@@ -371,7 +371,7 @@ void test('gerente único distribui dev livre no projeto urgente', () => {
   company.candidates.push({ id: 'gm2', name: 'Outro', level: 'junior', salary: 4000, lph: 0, role: 'manager' });
   assert.equal(company.hire('gm2'), 'só cabe um gerente');
   (company as unknown as { lastRebalance: number }).lastRebalance = -1000;
-  company.tick(1);
+  company.tick(0.1);
   assert.equal(company.hired.find((h) => h.id === 'd1')?.projectId, 'pg', 'gerente alocou');
 });
 
@@ -411,18 +411,18 @@ void test('recepcionista atende sozinha: aceita, pechincha pega o mínimo, fora 
   });
   company.minute = 9 * 60;
   company.bots.push(bot({ id: 'b-easy' }) as never);
-  company.tick(30); // 30 game-min: chama + atende + fecha
+  company.tick(3); // 30 game-min: chama + atende + fecha
   assert.equal(company.projects.length, 1, 'fácil fechou');
   assert.equal(company.projects[0].value, 5000);
   company.bots.push(bot({ id: 'b-hard', hard: true }) as never);
-  company.tick(30); // ciclo 1: chama + atende, vai p/ pechincha
+  company.tick(3); // ciclo 1: chama + atende, vai p/ pechincha
   const haggle = company.bots.find((b) => b.id === 'b-hard');
   assert(haggle && haggle.stage === 'haggle', 'pechincha aberta no ciclo 1');
-  company.tick(30); // ciclo 2: recepcionista fecha no mínimo
+  company.tick(3); // ciclo 2: recepcionista fecha no mínimo
   assert.equal(company.projects.length, 2, 'difícil fechou');
   assert.equal(company.projects[1].value, 4000, 'pechincha pegou o mínimo (80%)');
   company.bots.push(bot({ id: 'b-off', kind: 'off', want: 'Construção de casa' }) as never);
-  company.tick(30);
+  company.tick(3);
   assert.equal(company.projects.length, 2, 'fora de escopo não vira projeto');
   assert.equal(company.pendingFines.length, 0, 'dispensar não gera multa');
 });
@@ -454,7 +454,7 @@ void test('tiers: inter e premium custam mais e vêm na caixa', () => {
   assert.equal(company.balance, bal - 6000);
   assert.equal(company.buyNotebook('premium'), 'ok');
   assert.equal(company.balance, bal - 16000);
-  company.tick(24 * 60); // 1 dia: as duas chegam
+  company.tick(144); // 1 dia: as duas chegam
   assert.equal(company.packages.length, 2);
   const tiers = company.packages.map((p) => p.tier).sort((a, b) => (a ?? '').localeCompare(b ?? ''));
   assert.deepEqual(tiers, ['inter', 'premium']);
@@ -558,7 +558,7 @@ void test('desgaste real quebra; chamado para de produzir e volta ao liberar', (
     id: 'pu', client: 'C', title: 'Site', value: 3000, received: 1500,
     linesTotal: 100000, linesDone: 0, dueAbs: 99, status: 'active',
   });
-  company.tick(60); // 60h de jogo em uso: 499h -> 559h >= 500h (básico) = quebra
+  company.tick(6); // 60h de jogo em uso: 499h -> 559h >= 500h (básico) = quebra
   const m = company.machines.find((x) => x.id === 'm-use')!;
   assert.equal(m.broken, true, 'vida útil esgotada = quebra');
   assert(m.useHours! >= 500, `uso=${m.useHours}`);
@@ -569,14 +569,14 @@ void test('desgaste real quebra; chamado para de produzir e volta ao liberar', (
   assert.equal(company.callEmployee('h-use', 'p1'), 'ok');
   assert.equal(company.hired[0].calledBy, 'p1');
   const before = company.projects[0].linesDone;
-  company.tick(1); // chamado não produz (máquina quebrada também não deixaria, então troca por nova)
+  company.tick(0.1); // chamado não produz (máquina quebrada também não deixaria, então troca por nova)
   company.machines.push({ id: 'm-new', where: 'st:0', broken: false, tier: 'premium', useHours: 0 });
   company.machines = company.machines.filter((x) => x.id !== 'm-use');
-  company.tick(1);
+  company.tick(0.1);
   assert.equal(company.projects[0].linesDone, before, 'chamado parado = 0 linhas');
   company.minute = 9 * 60; // ainda de manhã (12h é almoço: ninguém produz)
   assert.equal(company.releaseEmployee('h-use', 'p1'), 'ok');
   assert.equal(company.hired[0].calledBy, null);
-  company.tick(1);
+  company.tick(0.1);
   assert(company.projects[0].linesDone > before, 'liberado volta a produzir');
 });

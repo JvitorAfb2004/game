@@ -33,6 +33,8 @@ export function createEnvironment(
     switch: { x: number; y: number; z: number };
   }[] = [];
   const notebooks: { roomId: string; x: number; y: number; z: number }[] = [];
+  // assento por sala PC: quem usa o notebook fica sentado aí (real e NPC)
+  const seats: Record<string, { x: number; z: number; ry: number }> = {};
   const devStations: { x: number; z: number; ry: number; mx: number }[] = [];
   // monitores das salas como meshes individuais (liga/desliga por máquina instalada)
   const roomMonitors: { roomId: string; group: ThreeType.Group }[] = [];
@@ -539,6 +541,7 @@ export function createEnvironment(
     scene.add(g);
     recLaptops.push(g);
     notebooks.push({ roomId: recIds[i], x: sx, y: 1.28, z: recZ - 1.32 });
+    seats[recIds[i]] = { x: sx, z: recZ - 1.6, ry: 0 };
   });
   // porta exclusiva dos bots-clientes na lateral leste (entram pelo lado, não atrás do balcão)
   const botDoorZ = recZ - 0.5;
@@ -623,7 +626,6 @@ export function createEnvironment(
   doors.push({ group: copaPivot, x: 6, z: copaDoorZ, side: 1, half: doorHalf, plane: 'x' });
   makePlaque('COPA', 5.82, 1.6, copaDoorZ + 1.2, -Math.PI / 2).setText('COPA');
   // sinalização: corredor (antes da porta do spawn) + dentro do spawn (parede leste)
-  makePlaque('COPAVIA', -1.0, 1.6, 14.11, Math.PI).setText('COPA VIA SPAWN');
   makePlaque('COPALEST', 3.81, 1.6, 17.2, -Math.PI / 2).setText('COPA A LESTE');
   // 4 mesas grandes (2.4 x 1.2) + 6 cadeiras cada (3 por lado) = 24
   const copaChairs: { x: number; z: number; ry: number }[] = [];
@@ -770,12 +772,16 @@ export function createEnvironment(
   const chairLegMat = frameMat;
   const plantPotMat = new THREE.MeshStandardMaterial({ color: 0x8a4b2a, roughness: 0.85 });
   const plantLeafMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.9 });
+  // salas trancadas ficam vazias (economiza processamento); engine esconde por ownedRooms
+  const roomProps = new Map<string, ThreeType.Object3D[]>();
   for (const side of [-1, 1] as const) {
     for (let ri = 0; ri < roomCenters.length; ri++) {
       const center = roomCenters[ri];
       if (side === 1 && ri === 0) continue; // sala dev tem mesas próprias
-      // cadeira encaixada sob a mesa (fica dentro do colisor da mesa)
-      const chairX = side * (xFar - 2.15);
+      const roomId = ROOM_IDS[side === 1 ? ri + 3 : ri];
+      const props: ThreeType.Object3D[] = [];
+      // cadeira na frente da mesa (fora do tampo), de frente p/ a parede de fundo
+      const chairX = side * (xFar - 2.5);
       const chair = new THREE.Group();
       const seat = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.44), chairMat);
       seat.position.y = 0.45; seat.castShadow = true; chair.add(seat);
@@ -787,15 +793,16 @@ export function createEnvironment(
       }
       chair.position.set(chairX, 0, center);
       chair.rotation.y = side === 1 ? Math.PI / 2 : -Math.PI / 2;
-      scene.add(chair);
-      collider(chairX, center, 0.5, 0.5, 0.5);
+      seats[roomId] = { x: chairX, z: center, ry: chair.rotation.y };
+      scene.add(chair); props.push(chair);
+      collider(chairX, center, 0.44, 0.44, 0.5);
       // planta no canto (vaso + folhagem), afastada das paredes
       const plantX = side * (xFar - 0.7);
       const plantZ = center + roomWidth / 2 - 0.8;
       const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.3, 10), plantPotMat);
-      pot.position.set(plantX, 0.15, plantZ); pot.castShadow = true; scene.add(pot);
+      pot.position.set(plantX, 0.15, plantZ); pot.castShadow = true; scene.add(pot); props.push(pot);
       const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), plantLeafMat);
-      leaf.position.set(plantX, 0.62, plantZ); leaf.scale.set(1, 1.15, 1); leaf.castShadow = true; scene.add(leaf);
+      leaf.position.set(plantX, 0.62, plantZ); leaf.scale.set(1, 1.15, 1); leaf.castShadow = true; scene.add(leaf); props.push(leaf);
       collider(plantX, plantZ, 0.4, 0.4, 1.0);
       // estante encostada na parede lateral (corpo + prateleiras)
       const shelfX = side * (xFar - 0.35);
@@ -808,8 +815,9 @@ export function createEnvironment(
         sh.position.set(0, yy, 0); shelf.add(sh);
       }
       shelf.position.set(shelfX, 0, shelfZ);
-      scene.add(shelf);
+      scene.add(shelf); props.push(shelf);
       collider(shelfX, shelfZ, 0.4, 0.95, 1.5);
+      roomProps.set(roomId, props);
     }
   }
   scene.background = new THREE.Color(0x1b2126);
@@ -848,6 +856,13 @@ export function createEnvironment(
     copaBounds: copa,
     copaCounter,
     copaVapor,
+    roomProps,
+    seats,
+    // sala trancada (não alugada) fica vazia — engine chama com ownedRooms
+    setRoomProps(roomId: string, visible: boolean) {
+      const list = roomProps.get(roomId);
+      if (list) for (const o of list) o.visible = visible;
+    },
     setReception,
     spawn: { x: 0, z: 15.6, yaw: 0 },
     spawnPoints,

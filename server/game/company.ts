@@ -121,8 +121,8 @@ export type Project = {
   status: 'active' | 'delivered';
 };
 
-// 1 seg real = 1min de jogo (dia = 24min reais). Ritmo de simulação.
-export const GAME_MIN_PER_SEC = 1;
+// 1 seg real = 10min de jogo (dia = 2.4min reais). Ritmo acelerado de simulação.
+export const GAME_MIN_PER_SEC = 10;
 export const PLAYER_LPH = 100; // dono rende como um junior (linhas por hora de jogo)
 const START_BALANCE = 10000;
 const MAX_QUEUE = 4;

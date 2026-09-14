@@ -206,7 +206,7 @@ export class Game {
   mgrNext = new Map<string, number>();
   remoteTargets = new Map<
     string,
-    { x: number; z: number; yaw: number; y: number; crouch: boolean }
+    { x: number; z: number; yaw: number; y: number; crouch: boolean; using: string | null }
   >();
   onLocalMove: ((x: number, z: number, yaw: number, y: number, crouch?: boolean) => void) | null =
     null;
@@ -252,6 +252,8 @@ export class Game {
     this.camera.rotation.order = 'YXZ';
     this.scene.add(this.camera);
     this.env = createEnvironment(THREE, this.scene);
+    // neblina casa com o fundo: esconde o corte da render distance
+    this.scene.fog = new THREE.Fog(0x1b2126, 60, 220);
     this.scene.add(this.remoteGroup);
     this.scene.add(this.botGroup);
     this.scene.add(this.devGroup);
@@ -390,6 +392,7 @@ export class Game {
     graphics: GraphicsPreset;
     muted: boolean;
     sensitivity: number;
+    renderDistance?: number;
   }) {
     const profile = getGraphicsProfile(o.graphics);
     this.sound.setMute(o.muted);
@@ -397,6 +400,7 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, profile.pixelRatio));
     this.renderer.shadowMap.enabled = profile.shadows;
     this.env.setShadowMapSize(profile.shadowMapSize);
+    if (o.renderDistance !== undefined) this.setRenderDistance(o.renderDistance);
     this.resize();
   }
   listen<K extends keyof WindowEventMap>(
@@ -569,6 +573,18 @@ export class Game {
   // ponytail: salas trancadas (aluguel) — porta bloqueia sempre, nem pulando
   lockedRooms = new Set<string>();
   serverPlaques = new Set<string>();
+  // ponytail: distância de render (fog + camera.far) — 0.3..1, estilo GTA
+  renderDistance = 1;
+  setRenderDistance(pct: number) {
+    this.renderDistance = Math.min(1, Math.max(0.25, pct));
+    const far = 60 + this.renderDistance * 160; // 100..220
+    this.camera.far = far;
+    this.camera.updateProjectionMatrix();
+    if (this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.near = far * 0.35;
+      this.scene.fog.far = far;
+    }
+  }
   setLockedRooms(ids: string[]) {
     this.lockedRooms = new Set(ids);
     for (const d of this.env.doors) {
@@ -578,6 +594,9 @@ export class Game {
         this.lockedRooms.has(id) ? '🔒 À VENDA' : '',
       );
     }
+    // sala trancada fica vazia p/ economizar
+    for (const roomId of ['W1', 'W2', 'W3', 'E1', 'E2', 'E3'])
+      this.env.setRoomProps(roomId, !this.lockedRooms.has(roomId));
   }
   doorBlocked(x: number, z: number, r: number, feet: number) {
     for (const d of this.env.doors) {
@@ -1379,6 +1398,7 @@ export class Game {
       yaw: number;
       y?: number;
       crouch?: boolean;
+      using?: string | null;
     }[],
   ) {
     const seen = new Set<string>();
@@ -1391,7 +1411,8 @@ export class Game {
         yaw: p.yaw,
         y: p.y ?? 0,
         crouch: p.crouch ?? false,
-      } as { x: number; z: number; yaw: number; y: number; crouch: boolean });
+        using: p.using ?? null,
+      });
       if (!this.remotes.has(p.id)) {
         const g = this.makeRemote(p.username, (p.character as FigureVariantId | undefined) ?? variantForId(p.id));
         this.remotes.set(p.id, g);
@@ -1412,19 +1433,24 @@ export class Game {
       const t = this.remoteTargets.get(id);
       if (!t) continue;
       const bx = g.position.x, bz = g.position.z;
-      g.position.x += (t.x - g.position.x) * k;
-      g.position.z += (t.z - g.position.z) * k;
-      const targetY = (t.y ?? 0) - (t.crouch ? 0.35 : 0);
+      // usando notebook: senta na cadeira do PC (todos veem)
+      const seat = t.using ? this.env.seats[t.using] : undefined;
+      const tx = seat ? seat.x : t.x;
+      const tz = seat ? seat.z : t.z;
+      g.position.x += (tx - g.position.x) * k;
+      g.position.z += (tz - g.position.z) * k;
+      const crouched = !!t.crouch && !seat;
+      const targetY = seat ? -0.18 : (t.y ?? 0) - (crouched ? 0.35 : 0);
       g.position.y += (targetY - g.position.y) * k;
-      const crouched = !!t.crouch;
       if (crouched) g.scale.y += (0.72 - g.scale.y) * k;
       else g.scale.y += (1 - g.scale.y) * k;
-      const moving = Math.hypot(t.x - bx, t.z - bz) > 0.02;
-      this.poseFig(g, moving && !crouched, crouched);
+      if (seat) g.rotation.y += (seat.ry - g.rotation.y) * k;
+      const moving = Math.hypot(tx - bx, tz - bz) > 0.02;
+      this.poseFig(g, moving && !crouched && !seat, crouched || !!seat);
       const tag = g.userData.tag as THREE.Mesh | undefined;
       if (tag) {
         tag.quaternion.copy(this.camera.quaternion);
-        tag.position.y = crouched ? 1.32 : 1.68;
+        tag.position.y = seat ? 1.38 : crouched ? 1.32 : 1.68;
       }
     }
   }
