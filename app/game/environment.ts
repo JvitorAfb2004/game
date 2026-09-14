@@ -20,6 +20,7 @@ export function createEnvironment(
     side: number;
     half: number;
     plane: 'x' | 'z';
+    roomId?: string;
   }[] = [];
   const rooms: {
     roomId: string;
@@ -101,14 +102,32 @@ export function createEnvironment(
     return entry;
   };
 
+  const loader = typeof document !== 'undefined' ? new THREE.TextureLoader() : null;
+  const applyTex = (mat: ThreeType.MeshStandardMaterial, url: string, repeat: [number, number]) => {
+    if (!loader) return;
+    loader.load(
+      url,
+      (t) => {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.repeat.set(repeat[0], repeat[1]);
+        t.colorSpace = THREE.SRGBColorSpace;
+        mat.map = t;
+        mat.needsUpdate = true;
+      },
+      undefined,
+      () => {},
+    );
+  };
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x9aa0a0,
     roughness: 0.92,
   });
+  applyTex(wallMat, '/tex/wall_brick_small_stone.png', [2, 1]);
   const corridorWallMat = new THREE.MeshStandardMaterial({
     color: 0x565c62,
     roughness: 0.92,
   });
+  applyTex(corridorWallMat, '/tex/wall_timber_structure.png', [1.5, 1]);
   const baseboardMat = new THREE.MeshStandardMaterial({
     color: 0x353b3f,
     roughness: 0.7,
@@ -117,6 +136,7 @@ export function createEnvironment(
     color: 0x5f6668,
     roughness: 0.95,
   });
+  applyTex(floorMat, '/tex/floor_tiles_tan_small.png', [6, 9]);
   const ceilMat = new THREE.MeshStandardMaterial({
     color: 0xd7dad8,
     roughness: 0.96,
@@ -137,6 +157,7 @@ export function createEnvironment(
     color: 0x6b4a2f,
     roughness: 0.85,
   });
+  applyTex(woodMat, '/tex/door_wood.png', [1, 1]);
   const woodEdgeMat = new THREE.MeshStandardMaterial({
     color: 0x4a2f1c,
     roughness: 0.8,
@@ -280,7 +301,7 @@ export function createEnvironment(
       handle.position.set(-side * 0.06, 1.05, doorHalf * 2 - 0.22);
       pivot.add(leaf, leafEdge, handle);
       scene.add(pivot);
-      doors.push({ group: pivot, x: xFace, z: center, side, half: doorHalf, plane: 'x' });
+      doors.push({ group: pivot, x: xFace, z: center, side, half: doorHalf, plane: 'x', roomId });
 
       // Switch on the lateral wall near the door.
       const swZ = z0 + 0.22;
@@ -547,14 +568,14 @@ export function createEnvironment(
   doors.push({ group: spawnPivot, x: 0, z: wallZ, side: 1, half: doorHalf, plane: 'z' });
 
   // --- Copa (nordeste, grande): 4 mesas x 6 cadeiras + TV + balcão da cozinha ---
-  // espaço amplo p/ jogador andar: beco alargado p/ x=4 (porta do spawn) até x=16
-  const copa = { minX: 4, maxX: 16, minZ: 13.5, maxZ: 18.5 };
+  // copa x 6..16; beco x 4..6 entre a porta do spawn e a porta da copa
+  const copa = { minX: 6, maxX: 16, minZ: 13.5, maxZ: 18.5 };
   const copaDoorZ = 15.5;
-  // oeste com vão da porta (agora em x=4, alinhado à porta do spawn)
-  box(corridorWallMat, 4, ceilingHeight / 2, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, ceilingHeight, (copaDoorZ - doorHalf) - copa.minZ);
-  box(corridorWallMat, 4, ceilingHeight / 2, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, ceilingHeight, copa.maxZ - (copaDoorZ + doorHalf));
-  collider(4, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, (copaDoorZ - doorHalf) - copa.minZ);
-  collider(4, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, copa.maxZ - (copaDoorZ + doorHalf));
+  // oeste com vão da porta
+  box(corridorWallMat, 6, ceilingHeight / 2, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, ceilingHeight, (copaDoorZ - doorHalf) - copa.minZ);
+  box(corridorWallMat, 6, ceilingHeight / 2, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, ceilingHeight, copa.maxZ - (copaDoorZ + doorHalf));
+  collider(6, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, (copaDoorZ - doorHalf) - copa.minZ);
+  collider(6, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, copa.maxZ - (copaDoorZ + doorHalf));
   box(frameMat, 6, panelH + (ceilingHeight - panelH) / 2, copaDoorZ, 0.12, ceilingHeight - panelH, doorHalf * 2);
   // leste / norte / sul fechadas
   box(corridorWallMat, 16, ceilingHeight / 2, 16, 0.3, ceilingHeight, 5.3);
@@ -564,9 +585,9 @@ export function createEnvironment(
   collider(16, 16, 0.3, 5.3);
   collider(11, 18.5, 10.3, 0.3);
   collider(10, 13.5, 12, 0.3);
-  // porta da copa (abre por proximidade) — agora em x=4
+  // porta da copa (abre por proximidade)
   const copaPivot = new THREE.Group();
-  copaPivot.position.set(4, 0, copaDoorZ - doorHalf);
+  copaPivot.position.set(6, 0, copaDoorZ - doorHalf);
   const copaLeaf = new THREE.Mesh(unitBox, woodMat);
   copaLeaf.scale.set(0.06, panelH, doorHalf * 2);
   copaLeaf.position.set(0, panelH / 2, doorHalf);
@@ -575,8 +596,8 @@ export function createEnvironment(
   copaHandle.position.set(0.06, 1.05, doorHalf * 2 - 0.22);
   copaPivot.add(copaLeaf, copaHandle);
   scene.add(copaPivot);
-  doors.push({ group: copaPivot, x: 4, z: copaDoorZ, side: 1, half: doorHalf, plane: 'x' });
-  makePlaque('COPA', 3.82, 1.6, copaDoorZ + 1.2, -Math.PI / 2).setText('COPA');
+  doors.push({ group: copaPivot, x: 6, z: copaDoorZ, side: 1, half: doorHalf, plane: 'x' });
+  makePlaque('COPA', 5.82, 1.6, copaDoorZ + 1.2, -Math.PI / 2).setText('COPA');
   // sinalização: corredor (antes da porta do spawn) + dentro do spawn (parede leste)
   makePlaque('COPAVIA', -1.0, 1.6, 14.11, Math.PI).setText('COPA VIA SPAWN');
   makePlaque('COPALEST', 3.81, 1.6, 17.2, -Math.PI / 2).setText('COPA A LESTE');
@@ -596,9 +617,30 @@ export function createEnvironment(
       copaChairs.push({ x: cx, z: tz + 0.95, ry: Math.PI });
     }
   }
-  // balcão da cozinha (leste) + ponto das cozinheiras
+  // balcão da cozinha (leste) + ponto das cozinheiras — cantina viva
   box(woodMat, 14.6, 0.5, 16, 0.8, 1.0, 3.0);
   collider(14.6, 16, 0.8, 3.0, 1.0);
+  // fogão (preto) + panelas + pilha de pratos no balcão
+  box(frameMat, 14.6, 0.9, 15.2, 0.6, 0.2, 0.5);
+  box(new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 }), 14.6, 1.05, 15.2, 0.45, 0.08, 0.35);
+  for (let i = 0; i < 3; i++) {
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.04, 12), ceilMat);
+    plate.position.set(14.6, 0.72 + i * 0.05, 16.6);
+    scene.add(plate);
+  }
+  // vapor (partículas brancas que sobem — animadas no engine)
+  const copaVapor = new THREE.Group();
+  for (let i = 0; i < 5; i++) {
+    const puff = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 6, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 }),
+    );
+    puff.position.set(14.6 + (Math.random() - 0.5) * 0.3, 1.2 + i * 0.18, 15.2 + (Math.random() - 0.5) * 0.2);
+    puff.userData.baseY = puff.position.y;
+    puff.userData.phase = Math.random() * Math.PI * 2;
+    copaVapor.add(puff);
+  }
+  scene.add(copaVapor);
   const copaCounter = { x: 15.4, z: 16 };
   // TV grande na parede norte (tela de vídeo HTML5 + equalizador via engine)
   const tvFrame = new THREE.Mesh(
@@ -721,6 +763,7 @@ export function createEnvironment(
     copaTV,
     copaBounds: copa,
     copaCounter,
+    copaVapor,
     setReception,
     spawn: { x: 0, z: 15.6, yaw: 0 },
     spawnPoints,

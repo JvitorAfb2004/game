@@ -7,6 +7,7 @@ export const clientMsg = z.discriminatedUnion('type', [
     z: z.number(),
     y: z.number().optional(),
     yaw: z.number(),
+    crouch: z.boolean().optional(),
   }),
   z.object({ type: z.literal('light'), roomId: z.string().max(8), on: z.boolean() }),
   z.object({ type: z.literal('plaque'), roomId: z.string().max(8), text: z.string().max(48) }),
@@ -43,6 +44,7 @@ export const clientMsg = z.discriminatedUnion('type', [
   z.object({ type: z.literal('callEmployee'), freelancerId: z.string().max(64) }),
   z.object({ type: z.literal('releaseEmployee'), freelancerId: z.string().max(64) }),
   z.object({ type: z.literal('dollyPos'), x: z.number(), z: z.number() }),
+  z.object({ type: z.literal('rentRoom'), roomId: z.string().max(8) }),
 ]);
 export type ClientMsg = z.infer<typeof clientMsg>;
 
@@ -54,5 +56,6 @@ export type NetPlayer = {
   z: number;
   yaw: number;
   y?: number;
+  crouch?: boolean;
   using?: string | null;
 };

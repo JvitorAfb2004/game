@@ -151,13 +151,13 @@
 .botchat-talk input{flex:1;background:#12222e;border:1px solid #4da3ff;color:#e6eecb;border-radius:3px;padding:.35rem .6rem;font-size:.78rem;font-family:inherit}
 .botchat-talk button{border:1px solid #4da3ff;background:#12325e;color:#fff;border-radius:3px;padding:.35rem .7rem}
 /* celular + toast de notificações */
-.hud-phone{position:fixed;top:196px;left:16px;z-index:30;font-size:20px;background:#0a0f12cc;border:1px solid #7fd6c240;border-radius:6px;padding:.3rem .5rem}
-.hud-phone em{font-style:normal;font-size:.65rem;background:#c0392b;color:#fff;border-radius:8px;padding:0 5px;margin-left:4px;vertical-align:super}
-.phone{position:fixed;right:16px;top:160px;z-index:40;width:min(320px,86vw);max-height:50vh;overflow:auto;background:#0b171df5;border:1px solid #4da3ff;border-radius:8px;color:#e6eecb;font-family:Tahoma,Arial,sans-serif;font-size:.8rem;padding:.6rem .7rem}
-.phone-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem}
-.phone-head button{background:none;border:1px solid #4da3ff;color:#fff;border-radius:3px;padding:.1rem .45rem}
-.phone ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.3rem}
-.phone li{background:#12222e;border-radius:4px;padding:.3rem .5rem}
-.phone li small{color:#8fa3b8;font-family:monospace}
-.phone-empty{color:#8fa3b8}
+.minimap{position:fixed;left:16px;bottom:16px;z-index:30;width:180px;height:180px;background:#0b171de6;border:1px solid #7fd6c240;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px #0008}
+.minimap canvas{width:100%;height:100%;display:block}
+.minimap-title{position:absolute;top:4px;left:6px;font:9px monospace;letter-spacing:.08em;color:#7fd6c2;pointer-events:none}
 .phone-toast{position:absolute;left:50%;top:110px;transform:translateX(-50%);z-index:45;background:#0b171dee;border:1px solid #ffd166;color:#ffe9c8;font:11px Tahoma,Arial,sans-serif;padding:.5rem .9rem;border-radius:4px;max-width:92vw;text-align:center}
+/* sci-fi modais (botchat, xp) — neon cyan, grid sutil, vidro */
+.botchat{box-shadow:0 0 18px #4da3ff55, inset 0 0 18px #0b3a5a33; border-color:#5dd3ff; background:linear-gradient(#0b171df2 0%, #0b1e2df2 100%)}
+.botchat-opts button{box-shadow:0 0 8px #4da3ff44}
+.xp-window{border-color:#5dd3ff; box-shadow:0 0 22px #4da3ff44, 4px 4px 18px #0009; background:linear-gradient(#0f1f2b 0%, #0b171d 100%)}
+.xp-titlebar{background:linear-gradient(#0a2d4a,#0e4a7a); border-bottom:1px solid #5dd3ff55; text-shadow:0 0 6px #5dd3ff88}
+.xp-body{color:#dbe7f0}

@@ -20,6 +20,95 @@ import { api } from './api';
 import { Notepad, Calculator, PlaqueEditor } from './game/desktop';
 import { CompanyApp } from './game/company';
 import { FIGURE_VARIANTS, type FigureVariantId } from './game/figures';
+function Minimap({
+  player,
+  players,
+  company,
+}: {
+  player: { x: number; z: number };
+  players: { x: number; z: number }[];
+  company: import('./game/net').CompanyState | null;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const W = 180, H = 180;
+    c.width = W; c.height = H;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a151e';
+    ctx.fillRect(0, 0, W, H);
+    const mapX = (x: number) => ((x + 24) / 48) * (W - 10) + 5;
+    const mapZ = (z: number) => ((18.5 - z) / 60.5) * (H - 10) + 5;
+    const rect = (x0: number, z0: number, x1: number, z1: number) => {
+      const ax = mapX(Math.min(x0, x1)), bx = mapX(Math.max(x0, x1));
+      const ay = mapZ(Math.max(z0, z1)), by = mapZ(Math.min(z0, z1));
+      return [ax, ay, bx - ax, by - ay] as const;
+    };
+    // corridor
+    ctx.fillStyle = '#1e2a33';
+    const [cx, cy, cw, ch] = rect(-1.5, -31, 1.5, 14.3);
+    ctx.fillRect(cx, cy, cw, ch);
+    // rooms W1,W2,W3 (-4.25) E1,E2,E3 (+4.25)
+    const centers = [9, -4, -17];
+    const ids = ['W1', 'W2', 'W3', 'E1', 'E2', 'E3'];
+    ids.forEach((id, i) => {
+      const side = i < 3 ? -1 : 1;
+      const ci = i % 3;
+      const cx0 = side * 7, w = 5.5, h = 7;
+      const x0 = side === -1 ? -7 : 1.5, x1 = side === -1 ? -1.5 : 7;
+      const z0 = centers[ci] - 3.5, z1 = centers[ci] + 3.5;
+      const locked = company ? !company.ownedRooms.includes(id) : false;
+      ctx.fillStyle = locked ? '#402020' : '#2a3a2a';
+      ctx.fillRect(...rect(x0, z0, x1, z1));
+      ctx.strokeStyle = locked ? '#6b2a2a' : '#3a5a3a';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(...rect(x0, z0, x1, z1));
+      ctx.fillStyle = '#9fb3ac';
+      ctx.font = '7px monospace';
+      ctx.fillText(id, mapX((x0 + x1) / 2) - 8, mapZ(centers[ci]) + 2);
+    });
+    // copa
+    ctx.fillStyle = '#3d2a18';
+    ctx.fillRect(...rect(6, 13.5, 16, 18.5));
+    ctx.fillStyle = '#9fb3ac';
+    ctx.font = '6px monospace';
+    ctx.fillText('COPA', mapX(11) - 10, mapZ(16) + 2);
+    // spawn
+    ctx.fillStyle = '#1a2a3a';
+    ctx.fillRect(...rect(-4, 14.3, 4, 18.7));
+    // recepção
+    ctx.fillStyle = '#2a1e2a';
+    ctx.fillRect(...rect(-5, -30.5, 5, -23.5));
+    ctx.fillStyle = '#9fb3ac';
+    ctx.font = '6px monospace';
+    ctx.fillText('REC', mapX(0) - 8, mapZ(-27) + 2);
+    // other players
+    players.forEach((p) => {
+      ctx.fillStyle = '#4da3ff';
+      ctx.beginPath();
+      ctx.arc(mapX(p.x), mapZ(p.z), 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    // self
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath();
+    ctx.arc(mapX(player.x), mapZ(player.z), 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }, [player, players, company]);
+  return (
+    <div className="minimap" aria-label="Minimapa">
+      <canvas ref={ref} width={180} height={180} />
+      <span className="minimap-title">MAPA</span>
+    </div>
+  );
+}
+
 import {
   XPWindow,
   useWindows,
@@ -99,7 +188,6 @@ export default function Home() {
   const { windows, open, close, minimize, toggleMax, focus, move, hydrate } = useWindows();
   const [desktopFiles, setDesktopFiles] = useState<DesktopFile[]>([]);
   const [filesTick, setFilesTick] = useState(0);
-  const [phoneOpen, setPhoneOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const lastNotif = useRef<string | null>(null);
   const toastTimer = useRef(0);
@@ -232,6 +320,7 @@ export default function Home() {
           engine.current?.setRhRoom(w.company.rhRoom ?? null);
           engine.current?.setDollyOwned(w.company.dollyOwned ?? false);
           if (w.company.dollyPos) engine.current?.setDollyPos(w.company.dollyPos.x, w.company.dollyPos.z);
+          engine.current?.setLockedRooms(['W1', 'W2', 'W3', 'E1', 'E2', 'E3'].filter((r) => !(w.company?.ownedRooms ?? []).includes(r)));
           engine.current?.setCompanyStock(w.company.stations, [], null);
         }
         applyPlayers(w.players);
@@ -261,6 +350,7 @@ export default function Home() {
         engine.current?.setRhRoom(c.rhRoom ?? null);
         engine.current?.setDollyOwned(c.dollyOwned ?? false);
         if (c.dollyPos) engine.current?.setDollyPos(c.dollyPos.x, c.dollyPos.z);
+        engine.current?.setLockedRooms(['W1', 'W2', 'W3', 'E1', 'E2', 'E3'].filter((r) => !c.ownedRooms.includes(r)));
         const me = session?.username ?? '';
         const myBox = c.packages.find((p) => p.claimer === me)?.id ?? null;
         engine.current?.setCompanyStock(
@@ -287,7 +377,7 @@ export default function Home() {
       n.onFiles = () => setFilesTick((t) => t + 1);
       n.connect(session.token, roomCode);
       if (engine.current) {
-        engine.current.onLocalMove = (x, z, yaw, y) => n.move(x, z, yaw, y);
+        engine.current.onLocalMove = (x, z, yaw, y, crouch) => n.move(x, z, yaw, y, crouch ?? false);
         engine.current.onToggleLight = (roomId, on) => n.light(roomId, on);
         engine.current.onCallNext = () => n.callNext();
         engine.current.onBotClick = (botId) => n.attend(botId);
@@ -435,16 +525,7 @@ export default function Home() {
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 6000);
   }, [company]);
-  // ponytail: M abre o celular (fora de inputs)
-  useEffect(() => {
-    if (!session || (!active && !state.desktop)) return;
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (e.code === 'KeyM' && !e.repeat && tag !== 'TEXTAREA' && tag !== 'INPUT') setPhoneOpen((v) => !v);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [session, active, state.desktop]);
+
   // ponytail: letras A/B/C respondem o chat (sem repeat p/ não disparar andando)
   // só no balcão: longe da recepção o atendimento é de outro jogador/recepcionista
   useEffect(() => {
@@ -749,38 +830,8 @@ export default function Home() {
           {company.paused ? ' · ⏸' : ''}
         </div>
       )}
-      {(active || state.desktop) && session && (
-        <button
-          type="button"
-          className="hud-phone"
-          aria-label="Abrir celular (M)"
-          onClick={() => setPhoneOpen((v) => !v)}
-        >
-          📱{company && company.notifs.length > 0 && <em>{company.notifs.length}</em>}
-        </button>
-      )}
       {toast && <output className="phone-toast">{toast}</output>}
-      {phoneOpen && (
-        <section className="phone" aria-label="Celular — notificações">
-          <div className="phone-head">
-            <b>📱 Notificações</b>
-            <button type="button" aria-label="Fechar celular" onClick={() => setPhoneOpen(false)}>
-              ✕
-            </button>
-          </div>
-          {!company || company.notifs.length === 0 ? (
-            <p className="phone-empty">Nada por aqui. (M abre/fecha)</p>
-          ) : (
-            <ul>
-              {company.notifs.map((n) => (
-                <li key={n.id}>
-                  <small>{n.when}</small> {n.text}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+      {active && !state.desktop && <Minimap player={state.player} players={players} company={company} />}
       {state.desktop && (
         <dialog className="xp" open aria-label="Área de trabalho">
           <div className="xp-icons">

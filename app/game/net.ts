@@ -75,6 +75,8 @@ export type CompanyState = {
   paused: boolean;
   dollyOwned: boolean;
   dollyPos: { x: number; z: number } | null;
+  ownedRooms: string[];
+  rentInfo: { entry: number; monthly: number; rooms: string[] };
   rhRoom: string | null;
   stations: ('ok' | 'broken' | 'empty')[];
   machines: CompanyMachine[];
@@ -158,8 +160,8 @@ export class Net {
     if (this.online && this.ws?.readyState === WebSocket.OPEN)
       this.ws.send(JSON.stringify({ type, ...payload }));
   }
-  move(x: number, z: number, yaw: number, y = 0) {
-    this.send('move', { x, z, yaw, y });
+  move(x: number, z: number, yaw: number, y = 0, crouch = false) {
+    this.send('move', { x, z, yaw, y, crouch });
   }
   light(roomId: string, on: boolean) {
     this.send('light', { roomId, on });
@@ -226,6 +228,9 @@ export class Net {
   }
   dollyPos(x: number, z: number) {
     this.send('dollyPos', { x, z });
+  }
+  rentRoom(roomId: string) {
+    this.send('rentRoom', { roomId });
   }
   setRhRoom(roomId: string) {
     this.send('setRhRoom', { roomId });

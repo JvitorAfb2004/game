@@ -80,6 +80,8 @@ export const DEV_STATIONS = 12;
 export const NOTEBOOK_PRICE = 3500;
 export const REPAIR_PRICE = 800;
 export const DOLLY_PRICE = 1500;
+// ponytail: salas alugáveis — entrada + mensalidade (dia 10); W1+E1+copa+recepção vêm abertas
+export const ROOM_RENT = { entry: 6000, monthly: 1500, rooms: ['W2', 'W3', 'E2', 'E3'] };
 const ROOM_IDS_ALL = ['W1', 'W2', 'W3', 'E1', 'E2', 'E3'];
 export type RaiseRequest = {
   id: string;
@@ -209,7 +211,8 @@ export class CompanySim {
   machines: Machine[] = [];
   dollyOwned = false; // carrinho comprado na loja (aparece no spawn)
   dollyPos: { x: number; z: number } | null = null; // última posição largada (persiste por sala)
-  rhRoom: string | null = 'W2'; // sala de RH (configurável): pedidos de aumento/demissão esperam lá
+  rhRoom: string | null = 'W1'; // sala de RH (configurável): pedidos de aumento/demissão esperam lá
+  ownedRooms: string[] = ['W1', 'E1']; // copa, recepção e spawn sempre abertos; demais se aluga
   deliveries: Delivery[] = [];
   packages: Pkg[] = [];
   claims: Record<string, { playerId: string; name: string }> = {};
@@ -315,8 +318,8 @@ export class CompanySim {
       return { x: px, z: -27.7, ry: Math.PI };
     }
     if (role === 'manager') {
-      // gerente senta no computador 1 da sala de devs (E1, estação 1)
-      return { x: 6.6, z: 7.4, ry: Math.PI / 2 };
+      // gerente em posto próprio ao norte da sala de devs (fora das 12 estações, de frente p/ equipe)
+      return { x: 6.6, z: 5.9, ry: 0 };
     }
     const devIdx = this.hired.filter((h) => h.role === 'dev').length;
     const stations = [
@@ -396,6 +399,8 @@ export class CompanySim {
       paused: this.paused,
       dollyOwned: this.dollyOwned,
       dollyPos: this.dollyPos,
+      ownedRooms: [...this.ownedRooms],
+      rentInfo: { ...ROOM_RENT },
       rhRoom: this.rhRoom,
       stations: this.stationStates(),
       machines: this.machines.map((m) => ({
@@ -1185,9 +1190,23 @@ export class CompanySim {
       type: 'resign',
     };
   }
+  /** aluga sala trancada: entrada à vista + mensalidade dia 10 */
+  rentRoom(roomId: string): string {
+    if (!ROOM_RENT.rooms.includes(roomId)) return 'sala não alugável';
+    if (this.ownedRooms.includes(roomId)) return 'sala já alugada';
+    if (this.balance < ROOM_RENT.entry) return 'saldo insuficiente p/ entrada';
+    this.balance = Math.round((this.balance - ROOM_RENT.entry) * 100) / 100;
+    this.ownedRooms.push(roomId);
+    this.bills.push({ id: `rent-${roomId}`, name: `Aluguel sala ${roomId}`, amount: ROOM_RENT.monthly, dueDay: 10, paidMonth: 0, lateFee: 0 });
+    this.push(`🏢 Sala ${roomId} alugada! Entrada ${brl(ROOM_RENT.entry)} + ${brl(ROOM_RENT.monthly)}/mês (dia 10).`);
+    this.notify(`🏢 Sala ${roomId} liberada! Mensalidade de ${brl(ROOM_RENT.monthly)} dia 10.`);
+    this.changed = true;
+    return 'ok';
+  }
   /** sala de RH (onde pedidos esperam resposta) */
   setRhRoom(roomId: string): string {
     if (!ROOM_IDS_ALL.includes(roomId)) return 'sala inválida';
+    if (!this.ownedRooms.includes(roomId)) return 'sala trancada — alugue primeiro';
     this.rhRoom = roomId;
     this.push(`🏢 Sala de RH: ${roomId}. Pedidos de aumento/demissão esperam lá.`);
     this.changed = true;
@@ -1349,6 +1368,7 @@ export class CompanySim {
       if (this.machines.some((m) => m.where === `st:${station}`)) return 'estação já tem máquina';
     } else {
       if (!['W1', 'W2', 'W3', 'E1', 'E2', 'E3'].includes(room!)) return 'sala inválida';
+      if (!this.ownedRooms.includes(room!)) return 'sala trancada — alugue primeiro';
       if (this.machines.some((m) => m.where === `rm:${room}`)) return 'sala já tem máquina';
     }
     const existing = this.machines.find((m) => m.id === boxId);
@@ -1446,8 +1466,8 @@ export class CompanySim {
       balance: this.balance, monthRevenue: this.monthRevenue, ticket: this.ticket, serving: this.serving,
       bots: this.bots, projects: this.projects, candidates: this.candidates,
       hired: this.hired, debts: this.debts, requests: this.requests, notifs: this.notifs,
-      pendingFines: this.pendingFines, manualPause: this.manualPause, dollyOwned: this.dollyOwned,
-      dollyPos: this.dollyPos, rhRoom: this.rhRoom,
+          pendingFines: this.pendingFines, manualPause: this.manualPause, dollyOwned: this.dollyOwned,
+          dollyPos: this.dollyPos, rhRoom: this.rhRoom, ownedRooms: this.ownedRooms,
       machines: this.machines, deliveries: this.deliveries, packages: this.packages,
       techs: this.techs,
       bills: this.bills, log: this.log,
@@ -1478,10 +1498,13 @@ export class CompanySim {
       for (const k of [
         'minute', 'day', 'month', 'absDay', 'balance', 'monthRevenue', 'ticket', 'serving',
         'bots', 'projects', 'candidates', 'hired', 'debts', 'requests', 'notifs',
-        'pendingFines', 'manualPause', 'dollyOwned', 'dollyPos', 'rhRoom', 'machines', 'deliveries', 'packages', 'techs', 'bills', 'log',
+        'pendingFines', 'manualPause', 'dollyOwned', 'dollyPos', 'rhRoom', 'ownedRooms', 'machines', 'deliveries', 'packages', 'techs', 'bills', 'log',
       ] as const) {
         if (s[k] !== undefined) (this as unknown as Record<string, unknown>)[k] = s[k];
       }
+      // migração: saves antigos ganham W1+E1 abertas
+      if (!Array.isArray(this.ownedRooms) || !this.ownedRooms.length) this.ownedRooms = ['W1', 'E1'];
+      if (this.rhRoom && !this.ownedRooms.includes(this.rhRoom)) this.rhRoom = 'W1';
       if (this.dollyPos && (!Number.isFinite(this.dollyPos.x) || !Number.isFinite(this.dollyPos.z)))
         this.dollyPos = null;
       this.techs ??= [];

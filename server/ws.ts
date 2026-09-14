@@ -71,7 +71,7 @@ export async function registerWs(app: FastifyInstance) {
         if (!msg.success) return;
         const m = msg.data;
         if (m.type === 'move') {
-          room.move(userId, m.x, m.z, m.yaw, m.y ?? 0);
+          room.move(userId, m.x, m.z, m.yaw, m.y ?? 0, m.crouch ?? false);
           room.broadcast({ type: 'players', players: room.snapshotPlayers() }, conn);
         } else if (m.type === 'using') {
           const ok = room.setUsing(userId, m.roomId);
@@ -188,6 +188,10 @@ export async function registerWs(app: FastifyInstance) {
           syncCompany();
         } else if (m.type === 'setRhRoom') {
           const res = company.setRhRoom(m.roomId);
+          if (res !== 'ok') cerr(res);
+          syncCompany();
+        } else if (m.type === 'rentRoom') {
+          const res = company.rentRoom(m.roomId);
           if (res !== 'ok') cerr(res);
           syncCompany();
         } else if (m.type === 'claimBox') {

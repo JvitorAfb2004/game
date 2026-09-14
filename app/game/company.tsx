@@ -21,6 +21,7 @@ type NetLike = {
   post(freelancerId: string, index: number | null): void;
   buyNotebook(tier?: string): void;
   buyDolly(): void;
+  rentRoom(roomId: string): void;
   setRhRoom(roomId: string): void;
   uninstallMachine(machineId: string): void;
   repairMachine(machineId: string): void;
@@ -621,6 +622,27 @@ export function CompanyApp({
               <p className="erp-hint">
                 Saldo: {brl(company.balance)} · tudo à vista no saldo da empresa · retire no spawn
               </p>
+              <h3>🏢 Salas para alugar ({company.ownedRooms.length}/6 abertas)</h3>
+              <ul className="erp-list">
+                {company.rentInfo.rooms.map((r) => {
+                  const owned = company.ownedRooms.includes(r);
+                  if (owned) return null;
+                  return (
+                    <li key={r} className="erp-item">
+                      <span className="erp-item-main">
+                        <b>🔒 Sala {r}</b>
+                        <small>entrada {brl(company.rentInfo.entry)} + {brl(company.rentInfo.monthly)}/mês (dia 10)</small>
+                      </span>
+                      <button type="button" className="erp-btn primary" onClick={() => net?.rentRoom(r)}>
+                        Alugar
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {company.rentInfo.rooms.every((r) => company.ownedRooms.includes(r)) && (
+                <p className="erp-empty">Todas as salas alugadas ✅</p>
+              )}
               <ul className="erp-list">
                 {(
                   [
@@ -669,7 +691,7 @@ export function CompanyApp({
                       onChange={(e) => e.target.value && net?.setRhRoom(e.target.value)}
                       aria-label="Sala de RH"
                     >
-                      {['W1', 'W2', 'W3', 'E1', 'E2', 'E3'].map((r) => (
+                      {[...new Set([...company.ownedRooms, company.rhRoom ?? 'W1'])].map((r) => (
                         <option key={r} value={r}>
                           {r}
                         </option>

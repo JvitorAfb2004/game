@@ -1,5 +1,5 @@
-// ponytail: paletas dos 4 personagens escolhíveis — sem three aqui p/ não pesar o bundle do login.
-// GLBs futuros em public/characters/<id>.glb fazem override automático (ver CharacterRegistry).
+// ponytail: paletas dos 4 personagens — FBX em public/characters/*.fbx (Kenney Blocky) tenta carregar via FBXLoader;
+// falha silenciosa mantém o humanoide procedural (sem travar build). Troque por GLB otimizado quando quiser.
 export const FIGURE_VARIANTS = [
   { id: 'azul', name: 'Azul', shirt: 0x35506b, pants: 0x1c2733, skin: 0xd9b48c },
   { id: 'verde', name: 'Verde', shirt: 0x4f7a5a, pants: 0x2a3325, skin: 0xb98a5e },

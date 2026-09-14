@@ -17,6 +17,9 @@ function isolate() {
   company.techs = [];
   company.deliveries = [];
   company.packages = [];
+  company.ownedRooms = ['W1', 'E1'];
+  company.rhRoom = 'W1';
+  company.bills = company.bills.filter((b) => !b.id.startsWith('rent-'));
   (company as unknown as { claims: Record<string, unknown> }).claims = {};
   (company as unknown as { spawnIn: number }).spawnIn = 1e9;
   (company as unknown as { emptyFor: number }).emptyFor = 0;
@@ -281,6 +284,8 @@ void test('sala cheia barra o 13º dev', () => {
 
 void test('sala sem máquina não abre PC; instala e quebra', () => {
   isolate();
+  company.balance = 100000;
+  if (!company.ownedRooms.includes('W2')) assert.equal(company.rentRoom('W2'), 'ok');
   company.machines.push({ id: 'w1', where: 'rm:W1', broken: false }); // W1 vem com PC
   assert.equal(company.roomsPC()['W2'], false, 'W2 sem máquina');
   assert.equal(company.roomsPC()['W1'], true, 'W1 vem com PC');
@@ -489,12 +494,28 @@ void test('carrinho: compra uma vez, aparece no snapshot', () => {
   assert.equal(company.snapshot().dollyOwned, true);
 });
 
+void test('aluga sala: entrada + mensalidade + destrava RH e instalação', () => {
+  isolate();
+  company.balance = 100000;
+  assert.equal(company.rentRoom('W1'), 'sala não alugável');
+  assert.equal(company.rentRoom('W3'), 'ok');
+  assert.equal(company.balance, 94000);
+  assert(company.ownedRooms.includes('W3'));
+  assert(company.bills.some((b) => b.id === 'rent-W3' && b.amount === 1500));
+  assert.equal(company.rentRoom('W3'), 'sala já alugada');
+  company.balance = 100; // saldo baixo não aluga
+  assert.equal(company.rentRoom('E2'), 'saldo insuficiente p/ entrada');
+  company.balance = 100000;
+});
 void test('RH: configura sala; aceitar pedido tira da espera', () => {
   isolate();
+  company.balance = 100000;
+  assert.equal(company.setRhRoom('E3'), 'sala trancada — alugue primeiro');
+  assert.equal(company.rentRoom('E3'), 'ok');
   assert.equal(company.setRhRoom('E3'), 'ok');
   assert.equal(company.rhRoom, 'E3');
   assert.equal(company.setRhRoom('XX'), 'sala inválida');
-  assert.equal(company.setRhRoom('W2'), 'ok'); // volta ao padrão p/ não vazar pros outros testes
+  assert.equal(company.setRhRoom('W1'), 'ok'); // volta ao padrão p/ não vazar pros outros testes
   company.hired.push({
     id: 'h-rh', name: 'RH', level: 'junior', salary: 2500, lph: 100, role: 'dev',
     projectId: null, post: null, lastCall: 0, lastPaidMonth: company.month, hiredDay: 1, askDay: 1,

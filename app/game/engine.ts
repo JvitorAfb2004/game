@@ -113,6 +113,8 @@ export class Game {
   vertical = 0;
   feetY = 0;
   sprinting = false;
+  crouching = false;
+  crouchLerp = 0; // 0 em pé, 1 agachado (para câmera e hitbox)
   disposed = false;
   chatOpen = false; // ponytail: conversando trava WASD (A/D respondem o chat)
   sensitivity = 1;
@@ -152,6 +154,7 @@ export class Game {
   tvAudioPanner: PannerNode | null = null;
   tvAudioSource: MediaElementAudioSourceNode | null = null;
   tvClock = 0;
+  copaVapor: THREE.Group | null = null;
   // ponytail: carrinho/dolly — visual local, usa claim/drop/place existentes (sem protocolo novo)
   dolly: THREE.Group | null = null;
   dollyGrabbed = false;
@@ -203,9 +206,9 @@ export class Game {
   mgrNext = new Map<string, number>();
   remoteTargets = new Map<
     string,
-    { x: number; z: number; yaw: number; y: number }
+    { x: number; z: number; yaw: number; y: number; crouch: boolean }
   >();
-  onLocalMove: ((x: number, z: number, yaw: number, y: number) => void) | null =
+  onLocalMove: ((x: number, z: number, yaw: number, y: number, crouch?: boolean) => void) | null =
     null;
   onToggleLight: ((roomId: string, on: boolean) => void) | null = null;
   onCallNext: (() => void) | null = null;
@@ -346,6 +349,7 @@ export class Game {
       this.initTVAudio();
       if (this.tvVideo) this.tvVideo.play().catch(() => { /* autoplay bloqueado; play no 1º clique */ });
     }
+    this.copaVapor = (this.env as unknown as { copaVapor?: THREE.Group }).copaVapor ?? null;
     this.bind();
     this.resize();
     (this.host as unknown as { __game?: Game }).__game = this;
@@ -487,6 +491,7 @@ export class Game {
       this.camera.position.z,
       this.yaw,
       this.feetY,
+      this.crouching,
     );
     if (document.pointerLockElement) document.exitPointerLock();
     this.emit();
@@ -533,9 +538,30 @@ export class Game {
       )
     );
   }
-  doorBlocked(x: number, z: number, r: number, feet: number) {
-    if (feet > 0.5) return false;
+  // ponytail: salas trancadas (aluguel) — porta bloqueia sempre, nem pulando
+  lockedRooms = new Set<string>();
+  serverPlaques = new Set<string>();
+  setLockedRooms(ids: string[]) {
+    this.lockedRooms = new Set(ids);
     for (const d of this.env.doors) {
+      const id = d.roomId;
+      if (!id || id === 'COPA' || this.serverPlaques.has(id)) continue;
+      this.env.plaques.find((p) => p.roomId === id)?.setText(
+        this.lockedRooms.has(id) ? '🔒 À VENDA' : '',
+      );
+    }
+  }
+  doorBlocked(x: number, z: number, r: number, feet: number) {
+    for (const d of this.env.doors) {
+      if (d.roomId && this.lockedRooms.has(d.roomId)) {
+        if (d.plane === 'z') {
+          if (Math.abs(z - d.z) < r + 0.08 && Math.abs(x - d.x) < d.half + r)
+            return true;
+        } else if (Math.abs(x - d.x) < r + 0.08 && Math.abs(z - d.z) < d.half + r)
+          return true;
+        continue;
+      }
+      if (feet > 0.5) continue;
       if (Math.abs(d.group.rotation.y) > 1.2) continue;
       if (d.plane === 'z') {
         if (Math.abs(z - d.z) < r + 0.08 && Math.abs(x - d.x) < d.half + r)
@@ -650,6 +676,36 @@ export class Game {
     const nz = g.position.z + dz;
     if (!this.doorBlocked(g.position.x, nz, 0.32, 0)) g.position.z = nz;
   }
+  updateCopaVapor(dt: number) {
+    if (!this.copaVapor) return;
+    const hasCook = this.hasCooks;
+    this.copaVapor.visible = hasCook;
+    if (!hasCook) return;
+    for (const puff of this.copaVapor.children as THREE.Mesh[]) {
+      const mat = puff.material as THREE.MeshBasicMaterial;
+      puff.position.y += dt * 0.22;
+      puff.position.x += Math.sin(this.elapsed * 0.9 + (puff.userData.phase as number)) * 0.002;
+      mat.opacity = 0.25 * (1 - (puff.position.y - (puff.userData.baseY as number)) / 1.2);
+      if (puff.position.y - (puff.userData.baseY as number) > 1.1) {
+        puff.position.y = puff.userData.baseY as number;
+        mat.opacity = 0.25;
+      }
+    }
+    // cozinheira mexe os braços (cozinhando) quando na cantina
+    for (const [id, g] of this.hiredWorkers) {
+      const h = [...this.hiredNames.keys()].includes(id) ? id : null;
+      if (!h) continue;
+      const isCook = this.hiredWorkers.get(id) && this.hasCooks;
+      const atCounter = Math.hypot(g.position.x - 15.4, g.position.z - 16) < 0.8;
+      if (isCook && atCounter) {
+        const l = g.userData.limbs as { armL: THREE.Group; armR: THREE.Group } | undefined;
+        if (l) {
+          l.armL.rotation.x = Math.sin(this.elapsed * 4.2) * 0.6 - 0.2;
+          l.armR.rotation.x = Math.cos(this.elapsed * 4.2) * 0.6 - 0.2;
+        }
+      }
+    }
+  }
   // ponto 1m à frente; válido se dentro do mapa e fora de parede/vidro/porta/móvel
   dropPoint() {
     const fx = -Math.sin(this.yaw);
@@ -673,8 +729,11 @@ export class Game {
       ? 0
       : (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) -
         (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0);
-    this.sprinting = this.keys.has('ShiftLeft') && f > 0;
-    const speed = (this.sprinting ? 6.1 : 3.8) * (this.dollyGrabbed ? 0.6 : 1);
+    this.crouching = this.keys.has('KeyC');
+    // agachado não corre e reduz altura de colisão; lerp para câmera suave
+    this.crouchLerp += ((this.crouching ? 1 : 0) - this.crouchLerp) * (1 - Math.exp(-dt * 10));
+    this.sprinting = this.keys.has('ShiftLeft') && f > 0 && !this.crouching;
+    const speed = (this.sprinting ? 6.1 : this.crouching ? 2.0 : 3.8) * (this.dollyGrabbed ? 0.6 : 1);
     const v = new THREE.Vector3(r, 0, -f);
     if (v.length() > 0) v.normalize();
     v.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw).multiplyScalar(
@@ -705,7 +764,8 @@ export class Game {
     if (this.feetY === support) this.vertical = 0;
     const moving = Math.min(1, this.velocity.length() / 3.8);
     this.camera.position.y =
-      1.7 +
+      1.7 -
+      this.crouchLerp * 0.7 +
       this.feetY +
       Math.sin(this.elapsed * (this.sprinting ? 13 : 9)) * 0.018 * moving;
     this.camera.rotation.set(
@@ -791,6 +851,21 @@ export class Game {
       if (d < 1.5 && toNb.normalize().dot(forward) > 0.85) {
         this.notebookTarget = n;
         prompt = 'PRESSIONE E OU CLIQUE PARA ACESSAR O NOTEBOOK';
+      }
+    }
+    // ponytail: porta de sala trancada — mira de perto avisa (sem E, sem entrada)
+    if (!prompt) {
+      for (const d of this.env.doors) {
+        if (!d.roomId || !this.lockedRooms.has(d.roomId)) continue;
+        const toD = new THREE.Vector3(
+          d.x - this.camera.position.x,
+          1.2 - this.camera.position.y,
+          d.z - this.camera.position.z,
+        );
+        if (toD.length() < 1.8 && toD.normalize().dot(forward) > 0.9) {
+          prompt = `🔒 SALA ${d.roomId} TRANCADA — alugue no Empresa 🛍️`;
+          break;
+        }
       }
     }
     // ponytail: 3 interruptores "chamar próximo" no balcão da recepção
@@ -1196,6 +1271,7 @@ export class Game {
       z: number;
       yaw: number;
       y?: number;
+      crouch?: boolean;
     }[],
   ) {
     const seen = new Set<string>();
@@ -1207,7 +1283,8 @@ export class Game {
         z: p.z,
         yaw: p.yaw,
         y: p.y ?? 0,
-      });
+        crouch: p.crouch ?? false,
+      } as { x: number; z: number; yaw: number; y: number; crouch: boolean });
       if (!this.remotes.has(p.id)) {
         const g = this.makeRemote(p.username, (p.character as FigureVariantId | undefined) ?? variantForId(p.id));
         this.remotes.set(p.id, g);
@@ -1230,11 +1307,18 @@ export class Game {
       const bx = g.position.x, bz = g.position.z;
       g.position.x += (t.x - g.position.x) * k;
       g.position.z += (t.z - g.position.z) * k;
-      g.position.y += (t.y - g.position.y) * k;
+      const targetY = (t.y ?? 0) - (t.crouch ? 0.35 : 0);
+      g.position.y += (targetY - g.position.y) * k;
+      const crouched = !!t.crouch;
+      if (crouched) g.scale.y += (0.72 - g.scale.y) * k;
+      else g.scale.y += (1 - g.scale.y) * k;
       const moving = Math.hypot(t.x - bx, t.z - bz) > 0.02;
-      this.poseFig(g, moving, false);
+      this.poseFig(g, moving && !crouched, crouched);
       const tag = g.userData.tag as THREE.Mesh | undefined;
-      if (tag) tag.quaternion.copy(this.camera.quaternion);
+      if (tag) {
+        tag.quaternion.copy(this.camera.quaternion);
+        tag.position.y = crouched ? 1.32 : 1.68;
+      }
     }
   }
   // ponytail: bots-clientes da recepcao (server-authoritative, so render).
@@ -2046,6 +2130,7 @@ export class Game {
       this.setTVState(text.trim().toLowerCase() === 'on');
       return;
     }
+    this.serverPlaques.add(roomId);
     this.env.plaques.find((p) => p.roomId === roomId)?.setText(text);
   }
   // ponytail: TV da copa — liga/desliga local + avisa p/ persistir (roomState COPA_TV)
@@ -2129,6 +2214,7 @@ export class Game {
     this.updateTechs(dt);
     this.updateManagers();
     this.updateTV(dt);
+    this.updateCopaVapor(dt);
     this.netClock -= dt;
     if (this.state.mode === 'playing' && this.netClock <= 0) {
       this.netClock = 1 / 15;
@@ -2137,6 +2223,7 @@ export class Game {
         this.camera.position.z,
         this.yaw,
         this.feetY,
+        this.crouching,
       );
     }
     let moving = 0;

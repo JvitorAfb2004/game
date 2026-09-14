@@ -18,7 +18,7 @@ export class GameRoom {
     this.players.set(p.id, { y: 0, using: null, ...p, conn });
     this.sockets.set(conn, p.id);
   }
-  move(id: string, x: number, z: number, yaw: number, y = 0) {
+  move(id: string, x: number, z: number, yaw: number, y = 0, crouch = false) {
     const p = this.players.get(id);
     if (!p) return;
     const c = clampMove(p, x, z);
@@ -26,6 +26,7 @@ export class GameRoom {
     p.z = c.z;
     p.yaw = yaw;
     p.y = y;
+    p.crouch = crouch;
   }
   setUsing(id: string, roomId: string | null): boolean {
     const p = this.players.get(id);
