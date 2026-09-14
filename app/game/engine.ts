@@ -253,7 +253,7 @@ export class Game {
     this.scene.add(this.camera);
     this.env = createEnvironment(THREE, this.scene);
     // neblina casa com o fundo: esconde o corte da render distance
-    this.scene.fog = new THREE.Fog(0x1b2126, 60, 220);
+    this.scene.fog = new THREE.Fog(0x1b2126, 20, 60);
     this.scene.add(this.remoteGroup);
     this.scene.add(this.botGroup);
     this.scene.add(this.devGroup);
@@ -577,12 +577,13 @@ export class Game {
   renderDistance = 1;
   setRenderDistance(pct: number) {
     this.renderDistance = Math.min(1, Math.max(0.1, pct));
-    const far = 60 + this.renderDistance * 160; // 100..220
+    // 10% → 14m (não vê quase nada), 100% → 110m (mapa inteiro ~60m)
+    const far = 14 + this.renderDistance * 96;
     this.camera.far = far;
     this.camera.updateProjectionMatrix();
     if (this.scene.fog instanceof THREE.Fog) {
-      this.scene.fog.near = far * 0.35;
-      this.scene.fog.far = far;
+      this.scene.fog.near = far * 0.45;
+      this.scene.fog.far = far * 0.98;
     }
   }
   setLockedRooms(ids: string[]) {

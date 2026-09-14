@@ -122,7 +122,8 @@ void test('cliente difícil pechincha e fecha na contraproposta', () => {
   assert.equal(company.answer('b-hard', true), 'ok');
   const p = company.projects[0];
   assert.equal(p.value, 4000);
-  assert.equal(p.received, 2000);
+  // entrada aleatória: 10%–40% do valor
+  assert(p.received >= 400 && p.received <= 1600, `entrada=${p.received} entre 10% e 40%`);
   assert(!company.bots.some((x) => x.id === 'b-hard'), 'sumiu após fechar');
 });
 
@@ -236,6 +237,7 @@ void test('recepcionista no balcão chama e fecha sozinha', () => {
 void test('notebook: compra, chega, instala e dev rende', () => {
   isolate();
   company.minute = 9 * 60;
+  company.balance = 100000;
   const bal = company.balance;
   assert.equal(company.buyNotebook(), 'ok');
   assert.equal(company.balance, bal - 3500);

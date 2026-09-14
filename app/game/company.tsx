@@ -232,7 +232,7 @@ export function CompanyApp({
                       </div>
                     </>
                   )}
-                  <small className="erp-hint">Fechar = +50% de entrada na hora · Recusar = cliente vai embora</small>
+                  <small className="erp-hint">Fechar = entrada de 10–40% na hora (resto na entrega) · Recusar = cliente vai embora</small>
                   <form
                     className="erp-talk"
                     onSubmit={(e) => {

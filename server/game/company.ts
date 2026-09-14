@@ -967,7 +967,9 @@ export class CompanySim {
     };
   }
   closeDeal(b: Bot, finalValue: number) {
-    const entry = Math.round((finalValue * 0.5 * 100)) / 100;
+    // entrada aleatória de 10% a 40% do valor (o resto é pago na entrega)
+    const entryPct = 0.1 + Math.random() * 0.3;
+    const entry = Math.round((finalValue * entryPct * 100)) / 100;
     this.balance = Math.round((this.balance + entry) * 100) / 100;
     this.projects.push({
       id: rid('proj'),
