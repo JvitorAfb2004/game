@@ -25,7 +25,7 @@ const FIG_TORSO_GEO = new THREE.BoxGeometry(0.46, 0.55, 0.28);
 const FIG_HEAD_GEO = new THREE.BoxGeometry(0.26, 0.26, 0.26);
 const FIG_LIMB_GEO = new THREE.BoxGeometry(0.13, 0.55, 0.15);
 const FIG_LEG_GEO = new THREE.BoxGeometry(0.16, 0.5, 0.17);
-import { FIGURE_VARIANTS, variantForId } from './figures';
+import { FIGURE_VARIANTS, FBX_MAP, FBX_FACE_OFFSET, variantForId } from './figures';
 import type { FigureVariantId } from './figures';
 
 class Soundscape {
@@ -1272,7 +1272,11 @@ export class Game {
     const handR = handL.clone();
     armL.add(armMeshL, handL);
     armR.add(armMeshR, handR);
-    g.add(legL, legR, torso, head, armL, armR);
+    const body = new THREE.Group();
+    body.add(legL, legR, torso, head, armL, armR);
+    g.add(body);
+    g.userData.body = body;
+    if (typeof variantOrColor === 'string') this.tryLoadFig(g, variantOrColor);
     const tag = new THREE.Mesh(NPC_TAG_GEO, this.npcTagMat(username));
     tag.position.y = 1.68;
     g.add(tag);
@@ -1280,6 +1284,70 @@ export class Game {
     g.userData.limbs = { armL, armR, legL, legR };
     g.userData.phase = Math.random() * Math.PI * 2;
     return g;
+  }
+  // ponytail: Blocky FBX opcional (lazy, cacheado) — falhou/ausente mantém o humanoide procedural
+  figCache = new Map<string, THREE.Group | null>();
+  figPending = new Map<string, THREE.Group[]>();
+  figLoading = false;
+  tryLoadFig(g: THREE.Group, variant: FigureVariantId) {
+    const cached = this.figCache.get(variant);
+    if (cached === null) return; // já falhou
+    if (cached) { this.attachFig(g, cached); return; }
+    const list = this.figPending.get(variant) ?? [];
+    list.push(g);
+    this.figPending.set(variant, list);
+    if (this.figLoading) return;
+    this.figLoading = true;
+    void (async () => {
+      try {
+        const [{ FBXLoader }] = await Promise.all([import('three/addons/loaders/FBXLoader.js')]);
+        const loader = new FBXLoader();
+        for (const v of FIGURE_VARIANTS.map((x) => x.id)) {
+          const file = FBX_MAP[v];
+          try {
+            const fbx = await loader.loadAsync(`/characters/${file}`);
+            fbx.updateMatrixWorld(true);
+            let box = new THREE.Box3().setFromObject(fbx);
+            const size = box.getSize(new THREE.Vector3());
+            if (size.y > 0.01) fbx.scale.multiplyScalar(1.72 / size.y);
+            fbx.updateMatrixWorld(true);
+            box = new THREE.Box3().setFromObject(fbx);
+            fbx.position.y -= box.min.y;
+            fbx.traverse((o) => {
+              const m = o as THREE.Mesh;
+              if (m.isMesh) {
+                m.castShadow = true;
+                m.receiveShadow = true;
+                if (m.material) {
+                  const mat = m.material as THREE.MeshStandardMaterial;
+                  if (mat.map) mat.color.set(0xffffff);
+                }
+              }
+            });
+            this.figCache.set(v, fbx);
+            for (const g of this.figPending.get(v) ?? []) this.attachFig(g, fbx);
+          } catch {
+            this.figCache.set(v, null);
+            for (const g of this.figPending.get(v) ?? []) g.userData.figFailed = true;
+          }
+          this.figPending.delete(v);
+        }
+      } catch {
+        for (const [, list] of this.figPending) for (const g of list) g.userData.figFailed = true;
+        this.figPending.clear();
+      } finally {
+        this.figLoading = false;
+      }
+    })();
+  }
+  attachFig(g: THREE.Group, src: THREE.Group) {
+    if (g.userData.hasFig) return;
+    g.userData.hasFig = true;
+    const body = g.userData.body as THREE.Group | undefined;
+    if (body) body.visible = false; // some o humanoide, entra o blocky
+    const clone = src.clone(true);
+    clone.rotation.y = FBX_FACE_OFFSET;
+    g.add(clone);
   }
   // ponytail: walk swing + perna dobrada ao sentar — 1 chamada por NPC por frame
   poseFig(g: THREE.Group, moving: boolean, seated: boolean) {

@@ -8,6 +8,15 @@ export const FIGURE_VARIANTS = [
 ] as const;
 export type FigureVariantId = (typeof FIGURE_VARIANTS)[number]['id'];
 export const FIGURE_IDS = FIGURE_VARIANTS.map((v) => v.id);
+// Kenney Blocky Characters (CC0) em public/characters/ — 4 escolhidos
+export const FBX_MAP: Record<FigureVariantId, string> = {
+  azul: 'character-a.fbx',
+  verde: 'character-e.fbx',
+  vermelho: 'character-i.fbx',
+  roxo: 'character-m.fbx',
+};
+// ajuste se os modelos nascerem virados (Kenney costuma encarar +Z)
+export const FBX_FACE_OFFSET = 0;
 export function variantForId(id: string): FigureVariantId {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
