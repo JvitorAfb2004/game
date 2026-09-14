@@ -799,6 +799,10 @@ export class Game {
     for (const [, g] of this.hiredWorkers ?? []) bodies.push(g.position);
     for (const [, g] of this.techs ?? []) bodies.push(g.position);
     for (const d of this.env.doors) {
+      if (d.roomId && this.lockedRooms.has(d.roomId)) {
+        d.group.rotation.y += (0 - d.group.rotation.y) * k;
+        continue;
+      }
       let target = 0;
       for (const b of bodies) {
         const dist = Math.hypot(b.x - d.x, b.z - d.z);
