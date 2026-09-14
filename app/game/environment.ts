@@ -184,6 +184,53 @@ export function createEnvironment(
     emissiveIntensity: 1.6,
   });
 
+  // --- laptop 3D (fix notebook 2 retângulos) — base 0.5x0.04x0.35, keyboard, screen 0.48x0.3 code, hinge, shadow ---
+  const laptopBaseMat = new THREE.MeshStandardMaterial({ color: 0x1e2328, roughness: 0.65, metalness: 0.15 });
+  const laptopHingeMat = new THREE.MeshStandardMaterial({ color: 0x0f1214, roughness: 0.5, metalness: 0.3 });
+  const laptopFrameMat = new THREE.MeshStandardMaterial({ color: 0x0f141a, roughness: 0.55, metalness: 0.2 });
+  const laptopShadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false });
+  let kbTex: ThreeType.Texture | null = null;
+  let codeTex: ThreeType.Texture | null = null;
+  if (typeof document !== 'undefined') {
+    const kc = document.createElement('canvas'); kc.width = 512; kc.height = 256;
+    const kctx = kc.getContext('2d')!;
+    kctx.fillStyle = '#1b1e22'; kctx.fillRect(0, 0, 512, 256);
+    kctx.fillStyle = '#2a2e33';
+    for (let r = 0; r < 4; r++) for (let c2 = 0; c2 < 10; c2++) { kctx.fillRect(14 + c2 * 49, 14 + r * 42, 42, 32); kctx.fillStyle = '#3a4048'; kctx.fillRect(16 + c2 * 49, 16 + r * 42, 38, 6); kctx.fillStyle = '#2a2e33'; }
+    kctx.fillStyle = '#2a2e33'; kctx.fillRect(22, 182, 468, 26);
+    kctx.fillStyle = '#3a4048'; kctx.fillRect(24, 184, 464, 4);
+    kbTex = new THREE.CanvasTexture(kc); kbTex.colorSpace = THREE.SRGBColorSpace; kbTex.needsUpdate = true;
+    const cc = document.createElement('canvas'); cc.width = 512; cc.height = 320;
+    const cctx = cc.getContext('2d')!; cctx.fillStyle = '#0d1a2a'; cctx.fillRect(0, 0, 512, 320);
+    cctx.font = '13px monospace'; cctx.fillStyle = '#5ee9b5';
+    ;["const app = () => {","  const data = await fetch('/api')","  return data.map(x=>x*2)","}","// vite build — ok","// 35 tests passed","export default app"].forEach((l, i) => cctx.fillText(l, 14, 22 + i * 22));
+    cctx.fillStyle = '#122a22'; cctx.fillRect(0, 280, 512, 40); cctx.fillStyle = '#7fd6c2'; cctx.font = 'bold 16px monospace'; cctx.fillText('● CODE • 60 FPS', 14, 305);
+    codeTex = new THREE.CanvasTexture(cc); codeTex.colorSpace = THREE.SRGBColorSpace; codeTex.needsUpdate = true;
+  }
+  const kbMat = new THREE.MeshStandardMaterial({ map: kbTex ?? undefined, color: kbTex ? 0xffffff : 0x2a2e33, roughness: 0.75 });
+  const laptopCodeMatBase = new THREE.MeshStandardMaterial({ map: codeTex ?? undefined, color: codeTex ? 0xffffff : 0x0b1e2e, emissive: codeTex ? 0x0a2a3a : 0x000000, emissiveIntensity: codeTex ? 0.32 : 0, roughness: 0.45 });
+  // ponytail: helper laptop procedural com fallback texturas — 70° hinge, sombra
+  const makeLaptop = (x: number, y: number, z: number, ry: number) => {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry;
+    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.46), laptopShadowMat);
+    shadow.rotation.x = -Math.PI / 2; shadow.position.set(0, -y + 0.02, 0); g.add(shadow);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.35), laptopBaseMat);
+    base.position.set(0, 0.02, 0); base.castShadow = true; base.receiveShadow = true; g.add(base);
+    const kbPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.30), kbMat);
+    kbPlane.rotation.x = -Math.PI / 2; kbPlane.position.set(0, 0.041, 0.015); kbPlane.receiveShadow = true; g.add(kbPlane);
+    const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.014, 0.014), laptopHingeMat);
+    hinge.position.set(0, 0.04, -0.175); g.add(hinge);
+    const pivot = new THREE.Group(); pivot.position.set(0, 0.04, -0.175); pivot.rotation.x = -70 * Math.PI / 180;
+    const scrMat = laptopCodeMatBase.clone();
+    const scrFrame = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.30, 0.012), laptopFrameMat);
+    scrFrame.position.set(0, 0.15, 0.006); scrFrame.castShadow = true; pivot.add(scrFrame);
+    const scrPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.26), scrMat);
+    scrPlane.position.set(0, 0.15, 0.013); pivot.add(scrPlane);
+    g.add(pivot);
+    g.userData.scrMat = scrMat; g.userData.pivot = pivot;
+    return g;
+  };
+
   const collider = (
     x: number,
     z: number,
@@ -341,23 +388,15 @@ export function createEnvironment(
       box(frameMat, deskX + 0.35, 0.36, center - 0.7, 0.08, 0.72, 0.08);
       box(frameMat, deskX - 0.35, 0.36, center + 0.7, 0.08, 0.72, 0.08);
       box(frameMat, deskX + 0.35, 0.36, center + 0.7, 0.08, 0.72, 0.08);
-      // monitor individual por sala (vermelho se quebrado, some sem máquina)
-      const monGroup = new THREE.Group();
-      const monBase = new THREE.Mesh(unitBox, frameMat);
-      monBase.scale.set(0.34, 0.03, 0.42);
-      monBase.position.set(deskX + side * 0.02, 0.78, center);
-      const monScrMat = ledMat.clone();
-      const monScr = new THREE.Mesh(unitBox, monScrMat);
-      monScr.scale.set(0.03, 0.34, 0.42);
-      monScr.position.set(deskX - side * 0.28, 0.99, center);
-      monGroup.add(monBase, monScr);
-      monGroup.userData.scrMat = monScrMat;
-      monGroup.visible = roomId === 'W1'; // W1 vem com PC; demais compram
-      scene.add(monGroup);
-      roomMonitors.push({ roomId, group: monGroup });
+      // laptop 3D — base 0.5x0.04x0.35 + kb + screen 0.48x0.3 code + hinge 70° + shadow (sai 2 retângulos)
+      const lapRy = side === 1 ? 0 : Math.PI; // teclado voltado para interior
+      const lapGroup = makeLaptop(deskX, 0.78, center, lapRy);
+      lapGroup.visible = roomId === 'W1'; // W1 vem com PC; demais compram
+      scene.add(lapGroup);
+      roomMonitors.push({ roomId, group: lapGroup });
       collider(deskX, center, 1.0, 1.7);
-      // ponto de acesso na borda do teclado (lado da sala) — sem precisar atravessar a mesa
-      notebooks.push({ roomId, x: deskX - side * 0.62, y: 0.95, z: center });
+      // ponto de acesso na borda do teclado — y atualizado para altura do laptop (~0.92)
+      notebooks.push({ roomId, x: deskX - side * 0.62, y: 0.92, z: center });
       // sala de devs: 2 mesas compridas, 6 postos cada (3 por lado) = 12
       if (isDevRoom) {
         for (const tx of [7.6, 9.6]) {
@@ -510,12 +549,14 @@ export function createEnvironment(
     swLed.position.set(sw.x, sw.y + 0.09, sw.z);
     scene.add(swLed);
   }
-  // 3 PCs da recepção (REC, REC2, REC3) em cima do balcão, acesso pela frente
+  // 3 laptops da recepção (REC, REC2, REC3) — mesmo kit laptop 0.5x0.04x0.35 + kb + screen code 70° + shadow
   const recIds = ['REC', 'REC2', 'REC3'];
+  const recLaptops: ThreeType.Group[] = [];
   recStations.forEach((sx, i) => {
-    box(frameMat, sx, 1.12, recZ - 1.6, 0.4, 0.03, 0.3);
-    box(ledMat, sx, 1.3, recZ - 1.72, 0.4, 0.35, 0.03);
-    notebooks.push({ roomId: recIds[i], x: sx, y: 1.15, z: recZ - 1.32 });
+    const g = makeLaptop(sx, 1.14, recZ - 1.6, 0);
+    scene.add(g);
+    recLaptops.push(g);
+    notebooks.push({ roomId: recIds[i], x: sx, y: 1.28, z: recZ - 1.32 });
   });
   // porta exclusiva dos bots-clientes na lateral leste (entram pelo lado, não atrás do balcão)
   const botDoorZ = recZ - 0.5;
@@ -931,7 +972,6 @@ export function createEnvironment(
     }
   };
   loadOfficeKit().catch(() => {});
-
   scene.background = new THREE.Color(0x1b2126);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 0.32));
   scene.add(new THREE.AmbientLight(0xffffff, 0.12));

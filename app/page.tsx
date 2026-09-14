@@ -11,6 +11,8 @@ import {
   Settings2,
   X,
   MoveUpRight,
+  DoorOpen,
+  LogOut,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -287,6 +289,16 @@ export default function Home() {
     setJoining(false);
     engine.current?.pause();
   }, []);
+  const signOut = useCallback(() => {
+    leaveRoom();
+    api.logout();
+    setSession(null);
+    setSettings(false);
+    setUsername('');
+    setPassword('');
+    setAuthMode('login');
+    setAuthError('');
+  }, [leaveRoom]);
   useEffect(() => {
     if (!session || !roomCode) return;
     let disposed = false;
@@ -1204,6 +1216,23 @@ export default function Home() {
               checked={!muted}
               onCheckedChange={(v) => setMuted(!v)}
             />
+          </div>
+          <div className="settings-actions">
+            {roomCode && (
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => {
+                  leaveRoom();
+                  setSettings(false);
+                }}
+              >
+                <DoorOpen size={16} /> SAIR DA SALA
+              </button>
+            )}
+            <button type="button" className="link-button" onClick={signOut}>
+              <LogOut size={16} /> SAIR DA CONTA
+            </button>
           </div>
           <button className="deploy-button" onClick={() => setSettings(false)}>
             APPLY &amp; RETURN

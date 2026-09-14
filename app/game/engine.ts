@@ -259,23 +259,49 @@ export class Game {
     this.scene.add(this.hiredGroup);
     this.scene.add(this.techGroup);
     this.scene.add(this.pkgGroup);
-    // monitores das 12 estações (visíveis quando há notebook instalado)
-    const monMat = new THREE.MeshStandardMaterial({ color: 0x24282c, roughness: 0.5 });
-    for (const st of this.env.devStations ?? []) {
-      const grp = new THREE.Group();
-      const base = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.03, 0.5), monMat);
-      base.position.set(st.mx, 0.765, st.z);
-      const scrMat = new THREE.MeshStandardMaterial({
-        color: 0x9fd8ff, emissive: 0x9fd8ff, emissiveIntensity: 0.7, roughness: 0.4,
-      });
-      const scr = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.34, 0.42), scrMat);
-      scr.position.set(st.mx, 0.95, st.z);
-      grp.add(base, scr);
-      grp.visible = false;
-      grp.userData.scrMat = scrMat;
-      this.devMonitors.push(grp);
-      this.scene.add(grp);
-    }
+    // laptops das 12 estações — base 0.5x0.04x0.35, keyboard, screen 0.48x0.3 code, hinge 70°, shadow (sai 2 retângulos)
+    {
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e2328, roughness: 0.65 });
+      const hingeMat = new THREE.MeshStandardMaterial({ color: 0x0f1214, roughness: 0.5 });
+      const frameMat2 = new THREE.MeshStandardMaterial({ color: 0x0f141a, roughness: 0.55 });
+      const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false });
+      let kbTex2: THREE.Texture | null = null; let codeTex2: THREE.Texture | null = null;
+      if (typeof document !== 'undefined') {
+        const kc = document.createElement('canvas'); kc.width = 512; kc.height = 256;
+        const kctx = kc.getContext('2d')!; kctx.fillStyle = '#1b1e22'; kctx.fillRect(0, 0, 512, 256);
+        kctx.fillStyle = '#2a2e33'; for (let r = 0; r < 4; r++) for (let c2 = 0; c2 < 10; c2++) { kctx.fillRect(14 + c2 * 49, 14 + r * 42, 42, 32); kctx.fillStyle = '#3a4048'; kctx.fillRect(16 + c2 * 49, 16 + r * 42, 38, 6); kctx.fillStyle = '#2a2e33'; }
+        kctx.fillStyle = '#2a2e33'; kctx.fillRect(22, 182, 468, 26);
+        kbTex2 = new THREE.CanvasTexture(kc); kbTex2.colorSpace = THREE.SRGBColorSpace;
+        const cc = document.createElement('canvas'); cc.width = 512; cc.height = 320;
+        const cctx = cc.getContext('2d')!; cctx.fillStyle = '#0d1a2a'; cctx.fillRect(0, 0, 512, 320);
+        cctx.font = '13px monospace'; cctx.fillStyle = '#5ee9b5';
+        ;["const app=()=>{","  const d=await fetch('/api')","  return d.map(x=>x*2)","}","// build ok","// 35 tests","export default app"].forEach((l, i) => cctx.fillText(l, 14, 22 + i * 22));
+        cctx.fillStyle = '#122a22'; cctx.fillRect(0, 280, 512, 40); cctx.fillStyle = '#7fd6c2'; cctx.font = 'bold 16px monospace'; cctx.fillText('● CODE • 60', 14, 305);
+        codeTex2 = new THREE.CanvasTexture(cc); codeTex2.colorSpace = THREE.SRGBColorSpace;
+      }
+      const kbMat2 = new THREE.MeshStandardMaterial({ map: kbTex2 ?? undefined, color: kbTex2 ? 0xffffff : 0x2a2e33, roughness: 0.75 });
+      const codeBase = new THREE.MeshStandardMaterial({ map: codeTex2 ?? undefined, color: codeTex2 ? 0xffffff : 0x0b1e2e, emissive: 0x0a2a3a, emissiveIntensity: codeTex2 ? 0.32 : 0, roughness: 0.45 });
+      for (const st of this.env.devStations ?? []) {
+        const grp = new THREE.Group(); grp.position.set(st.mx, 0.78, st.z); grp.rotation.y = st.ry;
+        const shadow = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.46), shadowMat);
+        shadow.rotation.x = -Math.PI / 2; shadow.position.set(0, -0.76, 0); grp.add(shadow);
+        const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.35), baseMat);
+        base.position.set(0, 0.02, 0); base.castShadow = true; base.receiveShadow = true; grp.add(base);
+        const kbPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.30), kbMat2);
+        kbPlane.rotation.x = -Math.PI / 2; kbPlane.position.set(0, 0.041, 0.015); grp.add(kbPlane);
+        const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.014, 0.014), hingeMat);
+        hinge.position.set(0, 0.04, -0.175); grp.add(hinge);
+        const pivot = new THREE.Group(); pivot.position.set(0, 0.04, -0.175); pivot.rotation.x = -70 * Math.PI / 180;
+        const scrMat = codeBase.clone();
+        const scrFrame = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.30, 0.012), frameMat2);
+        scrFrame.position.set(0, 0.15, 0.006); scrFrame.castShadow = true; pivot.add(scrFrame);
+        const scrPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.26), scrMat);
+        scrPlane.position.set(0, 0.15, 0.013); pivot.add(scrPlane);
+        grp.add(pivot);
+        grp.visible = false; grp.userData.scrMat = scrMat; grp.userData.pivot = pivot;
+        this.devMonitors.push(grp); this.scene.add(grp);
+      }
+      }
     // caixa segurada (filha da câmera)
     const carry = new THREE.Group();
     const cbox = new THREE.Mesh(
@@ -1974,9 +2000,10 @@ export class Game {
           scrMat.emissive.set(0xff4444);
           scrMat.emissiveIntensity = 0.7;
         } else {
-          scrMat.color.set(0x9fd8ff);
-          scrMat.emissive.set(0x9fd8ff);
-          scrMat.emissiveIntensity = 0.7;
+          // laptop code texture — ok mostra código, não azul sólido
+          scrMat.color.set(0xffffff);
+          scrMat.emissive.set(0x0a2a3a);
+          scrMat.emissiveIntensity = 0.32;
         }
       }
     });
@@ -2123,9 +2150,15 @@ export class Game {
       r.group.visible = on !== false || broken;
       const scrMat = r.group.userData.scrMat as THREE.MeshStandardMaterial | undefined;
       if (scrMat) {
-        const c = broken ? 0xff4444 : 0x9fd8ff;
-        scrMat.color.set(c);
-        scrMat.emissive.set(c);
+        if (broken) {
+          scrMat.color.set(0xff4444);
+          scrMat.emissive.set(0xff4444);
+          scrMat.emissiveIntensity = 0.7;
+        } else {
+          scrMat.color.set(0xffffff);
+          scrMat.emissive.set(0x0a2a3a);
+          scrMat.emissiveIntensity = 0.32;
+        }
       }
     }
   }
