@@ -20,6 +20,13 @@ const NPC_BODY_GEO = new THREE.BoxGeometry(0.5, 1.1, 0.3);
 const NPC_FEET_GEO = new THREE.BoxGeometry(0.52, 0.12, 0.36);
 const NPC_HEAD_GEO = new THREE.BoxGeometry(0.28, 0.28, 0.28);
 const NPC_TAG_GEO = new THREE.PlaneGeometry(1.1, 0.28);
+// ponytail: humanoide low-poly — membros compartilham 2 geometrias (braço/perna)
+const FIG_TORSO_GEO = new THREE.BoxGeometry(0.46, 0.55, 0.28);
+const FIG_HEAD_GEO = new THREE.BoxGeometry(0.26, 0.26, 0.26);
+const FIG_LIMB_GEO = new THREE.BoxGeometry(0.13, 0.55, 0.15);
+const FIG_LEG_GEO = new THREE.BoxGeometry(0.16, 0.5, 0.17);
+import { FIGURE_VARIANTS, variantForId } from './figures';
+import type { FigureVariantId } from './figures';
 
 class Soundscape {
   ctx: AudioContext | null = null;
@@ -131,16 +138,20 @@ export class Game {
   hiredWaiting = new Map<string, 'raise' | 'resign' | null>();
   reqRings = new Map<string, THREE.Mesh>();
   requestTalkId: string | null = null;
-  // ponytail: TV da copa — YouTube escondido (só áudio) + tela com título; volume por distância
-  tvIds = ['qj_kkF7FCO4', 'PE4955fPyfY', 'KHNFmK1wpOQ', '8lso_HuVjk8'];
-  tvTitles: Record<string, string> = {};
-  tvIdx = 0;
-  tvPlayer: { mute(): void; unMute(): void; setVolume(n: number): void; playVideo(): void; loadVideoById(id: string): void } | null = null;
-  tvApiLoading = false;
-  tvUnmuted = false;
+  // ponytail: TV da copa — HTML5 <video> + CanvasTexture; switch na parede; áudio 3D com falloff gradual
+  tvVideo: HTMLVideoElement | null = null;
+  tvVideoCanvas: HTMLCanvasElement | null = null;
+  tvVideoCtx: CanvasRenderingContext2D | null = null;
+  tvVideoTex: THREE.CanvasTexture | null = null;
+  tvVideoScreen: THREE.Mesh | null = null;
+  tvSwitchGroup: THREE.Group | null = null;
+  tvPlaying = false;
+  tvVolume = 0.5;
+  tvAudioCtx: AudioContext | null = null;
+  tvAudioGain: GainNode | null = null;
+  tvAudioPanner: PannerNode | null = null;
+  tvAudioSource: MediaElementAudioSourceNode | null = null;
   tvClock = 0;
-  tvCanvas: HTMLCanvasElement | null = null;
-  tvTex: THREE.CanvasTexture | null = null;
   // ponytail: carrinho/dolly — visual local, usa claim/drop/place existentes (sem protocolo novo)
   dolly: THREE.Group | null = null;
   dollyGrabbed = false;
@@ -322,22 +333,18 @@ export class Game {
     dolly.visible = false; // só aparece depois de comprar na loja
     this.dolly = dolly;
     this.scene.add(dolly);
-    // tela da TV da copa (o áudio vem do player escondido)
+    // tela da TV da copa — HTML5 <video> + CanvasTexture + áudio 3D
     const tv = this.env.copaTV;
-    if (tv) {
-      this.tvCanvas = document.createElement('canvas');
-      this.tvCanvas.width = 512;
-      this.tvCanvas.height = 288;
-      this.tvTex = new THREE.CanvasTexture(this.tvCanvas);
-      const scr = new THREE.Mesh(
-        new THREE.PlaneGeometry(3.0, 1.7),
-        new THREE.MeshBasicMaterial({ map: this.tvTex }),
-      );
-      scr.position.set(tv.x, tv.y, tv.z);
-      scr.rotation.y = Math.PI;
-      this.scene.add(scr);
-      this.drawTVScreen();
-      void this.loadTVTitles();
+    if (tv && tv.videoScreen) {
+      this.tvVideoScreen = tv.videoScreen;
+      this.tvSwitchGroup = tv.switchGroup;
+      const vd = this.tvVideoScreen.userData;
+      this.tvVideo = vd.video;
+      this.tvVideoCanvas = vd.videoCanvas;
+      this.tvVideoCtx = vd.videoCtx;
+      this.tvVideoTex = vd.videoTex;
+      this.initTVAudio();
+      if (this.tvVideo) this.tvVideo.play().catch(() => { /* autoplay bloqueado; play no 1º clique */ });
     }
     this.bind();
     this.resize();
@@ -451,7 +458,8 @@ export class Game {
   }
   start() {
     this.sound.init();
-    this.tvUnmuted = true; // clique em Jogar = gesto (autoplay com som liberado)
+    // clique em Jogar = gesto: se a TV está ligada (estado persistido), libera o play
+    if (this.tvPlaying) void this.tvVideo?.play().catch(() => {});
     this.ensureTV();
     this.started = true;
     this.state.mode = 'playing';
@@ -548,64 +556,46 @@ export class Game {
     }
   }
   ensureTV() {
-    if (this.tvPlayer || this.tvApiLoading || typeof document === 'undefined') return;
-    this.tvApiLoading = true;
-    try {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      document.head.appendChild(tag);
-      const host = document.createElement('div');
-      host.style.cssText = 'position:fixed;width:2px;height:2px;opacity:0.01;bottom:0;right:0;pointer-events:none;';
-      document.body.appendChild(host);
-      (window as unknown as { onYouTubeIframeAPIReady?: () => void }).onYouTubeIframeAPIReady = () => {
-        try {
-          const YT = (window as unknown as { YT: { Player: new (el: HTMLElement, opts: object) => never } }).YT;
-          this.tvPlayer = new YT.Player(host, {
-            width: '2', height: '2', videoId: this.tvIds[this.tvIdx],
-            playerVars: { autoplay: 1, controls: 0, disablekb: 1 },
-            events: {
-              onReady: (e: { target: { mute(): void; playVideo(): void } }) => { e.target.mute(); e.target.playVideo(); },
-              onStateChange: (e: { data: number; target: { loadVideoById(id: string): void } }) => {
-                if (e.data === 0) {
-                  this.tvIdx = (this.tvIdx + 1) % this.tvIds.length;
-                  e.target.loadVideoById(this.tvIds[this.tvIdx]);
-                }
-              },
-            },
-          }) as unknown as typeof this.tvPlayer;
-        } catch { /* sem youtube: tela segue muda */ }
-      };
-    } catch { /* offline: sem TV */ }
+    // agora inicializado no constructor via this.env.copaTV.videoScreen
   }
-  async loadTVTitles() {
-    for (const id of this.tvIds) {
-      try {
-        const r = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`);
-        const j = (await r.json()) as { title?: string };
-        this.tvTitles[id] = (j.title ?? 'Vídeo').slice(0, 48);
-      } catch {
-        this.tvTitles[id] = 'Vídeo da copa 📺';
-      }
-    }
+  initTVAudio() {
+    if (this.tvAudioCtx || !this.tvVideo) return;
+    this.tvAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    this.tvAudioGain = this.tvAudioCtx.createGain();
+    this.tvAudioGain.gain.value = this.tvVolume;
+    this.tvAudioPanner = this.tvAudioCtx.createPanner();
+    this.tvAudioPanner.panningModel = 'HRTF';
+    this.tvAudioPanner.distanceModel = 'linear';
+    this.tvAudioPanner.refDistance = 1;
+    this.tvAudioPanner.maxDistance = 18;
+    this.tvAudioPanner.rolloffFactor = 1;
+    this.tvAudioPanner.positionX.value = 11;
+    this.tvAudioPanner.positionY.value = 1.9;
+    this.tvAudioPanner.positionZ.value = 18.34;
+    this.tvAudioSource = this.tvAudioCtx.createMediaElementSource(this.tvVideo);
+    this.tvAudioSource.connect(this.tvAudioPanner).connect(this.tvAudioGain).connect(this.tvAudioCtx.destination);
+    this.tvVideo.volume = 1; // controlado pelo gain
   }
   drawTVScreen() {
-    const canvas = this.tvCanvas;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
-    const id = this.tvIds[this.tvIdx];
+    if (!this.tvVideoCanvas || !this.tvVideoCtx || !this.tvVideoTex) return;
+    const ctx = this.tvVideoCtx;
     ctx.fillStyle = '#0b0f12';
     ctx.fillRect(0, 0, 512, 288);
-    ctx.fillStyle = '#ff0033';
-    ctx.beginPath();
-    ctx.roundRect(24, 24, 64, 44, 8);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.moveTo(44, 32); ctx.lineTo(66, 46); ctx.lineTo(44, 60); ctx.fill();
-    ctx.fillStyle = '#ffe9c8';
-    ctx.font = 'bold 26px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText((this.tvTitles[id] ?? 'Carregando…').slice(0, 34), 100, 55);
+    if (this.tvVideo && this.tvVideo.readyState >= 2) {
+      ctx.drawImage(this.tvVideo, 0, 0, 512, 288);
+    } else {
+      ctx.fillStyle = '#ff0033';
+      ctx.beginPath();
+      ctx.roundRect(24, 24, 64, 44, 8);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(44, 32); ctx.lineTo(66, 46); ctx.lineTo(44, 60); ctx.fill();
+      ctx.fillStyle = '#ffe9c8';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Carregando vídeo…', 100, 55);
+    }
     // equalizador fake
     for (let i = 0; i < 32; i++) {
       const h = 20 + Math.random() * 120;
@@ -614,29 +604,43 @@ export class Game {
     }
     ctx.fillStyle = '#7fd6c2';
     ctx.font = '20px sans-serif';
-    ctx.fillText('🔊 som por proximidade — chegue perto', 24, 278);
-    this.tvTex!.needsUpdate = true;
+    ctx.fillText(this.tvPlaying ? '🔊 Som 3D — chegue perto' : '🔇 TV desligada — flip o switch', 24, 278);
+    this.tvVideoTex.needsUpdate = true;
   }
   updateTV(dt: number) {
+    if (!this.tvVideo || !this.tvVideoScreen) return;
     this.tvClock -= dt;
     if (this.tvClock > 0) return;
     this.tvClock = 0.5;
-    const b = this.env.copaBounds;
+
+    // distância 3D real (x, y, z) para falloff suave
     const p = this.camera.position;
-    const inside = !!b && p.x > b.minX && p.x < b.maxX && p.z > b.minZ && p.z < b.maxZ;
-    const tv = this.env.copaTV;
-    const d = tv ? Math.hypot(p.x - tv.x, p.z - tv.z) : 99;
-    const vol = inside && this.tvUnmuted && !this.sound.muted && this.started
-      ? Math.max(0, Math.round(100 * (1 - d / 14)))
-      : 0;
-    try {
-      if (!this.tvPlayer) return;
-      if (vol <= 0) this.tvPlayer.mute();
-      else {
-        this.tvPlayer.unMute();
-        this.tvPlayer.setVolume(Math.max(5, vol));
-      }
-    } catch { /* player ainda carregando */ }
+    const dx = p.x - 11;
+    const dy = p.y - 1.9;
+    const dz = p.z - 18.34;
+    const d = Math.hypot(dx, dy, dz);
+
+    // falloff linear suave: 1 em 2m → 0 em 20m; também atenuado por paredes/portas
+    let vol = this.tvPlaying ? Math.max(0, 1 - (d - 2) / 18) : 0;
+
+    // atenuação extra se não estiver na copa nem no beco (paredes)
+    const b = this.env.copaBounds;
+    const inCopa = !!b && p.x > b.minX && p.x < b.maxX && p.z > b.minZ && p.z < b.maxZ;
+    const inBeco = p.x > 4 && p.x < 6 && p.z > 13.5 && p.z < 18.5;
+    const inE1 = p.x > 4 && p.x < 11 && p.z > 6.6 && p.z < 9.5; // sala E1 adjacente
+    if (!inCopa && !inBeco && !inE1) vol *= 0.15; // -85% através da parede
+
+    vol = Math.max(0, Math.min(1, vol)) * this.tvVolume;
+    if (this.tvAudioGain) this.tvAudioGain.gain.value = vol;
+    if (this.tvVideo) this.tvVideo.volume = 1; // gain controla
+
+    // atualiza posição do panner (TV fixa)
+    if (this.tvAudioPanner) {
+      this.tvAudioPanner.positionX.value = 11;
+      this.tvAudioPanner.positionY.value = 1.9;
+      this.tvAudioPanner.positionZ.value = 18.34;
+    }
+
     this.drawTVScreen();
   }
   // ponytail: NPC respeita porta fechada igual ao jogador (espera abrir; móveis ignora como antes)
@@ -803,6 +807,19 @@ export class Game {
         this.callTarget = true;
         prompt = 'PRESSIONE E OU CLIQUE PARA CHAMAR O PRÓXIMO';
         break;
+      }
+    }
+    // ponytail: switch da TV da copa (liga/desliga vídeo + áudio, persiste na sala)
+    this.tvSwitchTarget = false;
+    if (this.tvSwitchGroup?.visible !== false) {
+      const toTV = new THREE.Vector3(
+        12.8 - this.camera.position.x,
+        1.9 - this.camera.position.y,
+        18.35 - this.camera.position.z,
+      );
+      if (toTV.length() < 2.2 && toTV.normalize().dot(forward) > 0.9) {
+        this.tvSwitchTarget = true;
+        prompt = `PRESSIONE E PARA ${this.tvPlaying ? 'DESLIGAR' : 'LIGAR'} A TV 📺`;
       }
     }
     // ponytail: clique no cliente chamado abre o atendimento (mesmo padrao de mira)
@@ -989,6 +1006,8 @@ export class Game {
       } else if (this.hoverHiredId === this.calledHiredId) this.onReleaseEmployee?.(this.hoverHiredId);
       else this.onCallEmployee?.(this.hoverHiredId);
       this.sound.noise(0.05, 0.1, 900);
+    } else if (this.tvSwitchTarget) {
+      this.toggleTV();
     } else if (this.boxTarget) {
       const bt = this.boxTarget;
       if (bt.kind === 'pickup') {
@@ -1086,28 +1105,83 @@ export class Game {
     }
     return m;
   }
-  makeRemote(username: string, color = 0x35506b) {
+  makeRemote(username: string, variantOrColor: FigureVariantId | number = 0x35506b) {
+    const pal = typeof variantOrColor === 'string'
+      ? (FIGURE_VARIANTS.find((v) => v.id === variantOrColor) ?? FIGURE_VARIANTS[0])
+      : { id: 'custom', name: '', shirt: variantOrColor, pants: 0x1c2733, skin: 0xd9b48c };
     const g = new THREE.Group();
-    const body = new THREE.Mesh(NPC_BODY_GEO, this.npcBodyMat(color));
-    // ponytail: base no chao (0.55 = 1.1/2), antes flutuava a 0.9
-    body.position.y = 0.55;
-    body.castShadow = true;
-    const feet = new THREE.Mesh(NPC_FEET_GEO, this.npcBodyMat(0x1c2733));
-    feet.position.y = 0.06;
-    const head = new THREE.Mesh(NPC_HEAD_GEO, this.npcBodyMat(0xd9b48c));
-    head.position.y = 1.26;
+    const shirt = this.npcBodyMat(pal.shirt);
+    const pants = this.npcBodyMat(pal.pants);
+    const skin = this.npcBodyMat(pal.skin);
+    // pernas (pivô no quadril p/ walk swing + sentar)
+    const legL = new THREE.Group(), legR = new THREE.Group();
+    legL.position.set(-0.11, 0.5, 0);
+    legR.position.set(0.11, 0.5, 0);
+    const legMeshL = new THREE.Mesh(FIG_LEG_GEO, pants);
+    legMeshL.position.y = -0.25;
+    legMeshL.castShadow = true;
+    const legMeshR = new THREE.Mesh(FIG_LEG_GEO, pants);
+    legMeshR.position.y = -0.25;
+    legMeshR.castShadow = true;
+    legL.add(legMeshL);
+    legR.add(legMeshR);
+    // tronco + cabeça
+    const torso = new THREE.Mesh(FIG_TORSO_GEO, shirt);
+    torso.position.y = 0.78;
+    torso.castShadow = true;
+    const head = new THREE.Mesh(FIG_HEAD_GEO, skin);
+    head.position.y = 1.2;
     head.castShadow = true;
-    g.add(body, feet, head);
+    // braços (pivô no ombro p/ walk swing)
+    const armL = new THREE.Group(), armR = new THREE.Group();
+    armL.position.set(-0.31, 1.02, 0);
+    armR.position.set(0.31, 1.02, 0);
+    const armMeshL = new THREE.Mesh(FIG_LIMB_GEO, shirt);
+    armMeshL.position.y = -0.24;
+    armMeshL.castShadow = true;
+    const armMeshR = new THREE.Mesh(FIG_LIMB_GEO, shirt);
+    armMeshR.position.y = -0.24;
+    armMeshR.castShadow = true;
+    const handL = new THREE.Mesh(FIG_HEAD_GEO, skin);
+    handL.scale.setScalar(0.45);
+    handL.position.y = -0.52;
+    const handR = handL.clone();
+    armL.add(armMeshL, handL);
+    armR.add(armMeshR, handR);
+    g.add(legL, legR, torso, head, armL, armR);
     const tag = new THREE.Mesh(NPC_TAG_GEO, this.npcTagMat(username));
     tag.position.y = 1.68;
     g.add(tag);
     g.userData.tag = tag;
+    g.userData.limbs = { armL, armR, legL, legR };
+    g.userData.phase = Math.random() * Math.PI * 2;
     return g;
+  }
+  // ponytail: walk swing + perna dobrada ao sentar — 1 chamada por NPC por frame
+  poseFig(g: THREE.Group, moving: boolean, seated: boolean) {
+    const l = g.userData.limbs as
+      | { armL: THREE.Group; armR: THREE.Group; legL: THREE.Group; legR: THREE.Group }
+      | undefined;
+    if (!l) return;
+    if (seated) {
+      l.legL.rotation.x = -1.25;
+      l.legR.rotation.x = -1.25;
+      l.armL.rotation.x = -0.35;
+      l.armR.rotation.x = -0.35;
+      return;
+    }
+    const s = moving ? Math.sin(this.elapsed * 9 + (g.userData.phase as number)) * 0.55 : 0;
+    const k = 1 - Math.exp(-0.2);
+    l.armL.rotation.x += (s - l.armL.rotation.x) * k;
+    l.armR.rotation.x += (-s - l.armR.rotation.x) * k;
+    l.legL.rotation.x += (-s - l.legL.rotation.x) * k;
+    l.legR.rotation.x += (s - l.legR.rotation.x) * k;
   }
   setRemotePlayers(
     players: {
       id: string;
       username: string;
+      character?: string;
       x: number;
       z: number;
       yaw: number;
@@ -1125,7 +1199,7 @@ export class Game {
         y: p.y ?? 0,
       });
       if (!this.remotes.has(p.id)) {
-        const g = this.makeRemote(p.username);
+        const g = this.makeRemote(p.username, (p.character as FigureVariantId | undefined) ?? variantForId(p.id));
         this.remotes.set(p.id, g);
         this.remoteGroup.add(g);
         g.position.set(p.x, p.y ?? 0, p.z);
@@ -1143,9 +1217,12 @@ export class Game {
     for (const [id, g] of this.remotes) {
       const t = this.remoteTargets.get(id);
       if (!t) continue;
+      const bx = g.position.x, bz = g.position.z;
       g.position.x += (t.x - g.position.x) * k;
       g.position.z += (t.z - g.position.z) * k;
       g.position.y += (t.y - g.position.y) * k;
+      const moving = Math.hypot(t.x - bx, t.z - bz) > 0.02;
+      this.poseFig(g, moving, false);
       const tag = g.userData.tag as THREE.Mesh | undefined;
       if (tag) tag.quaternion.copy(this.camera.quaternion);
     }
@@ -1248,6 +1325,7 @@ export class Game {
         const fz = waiting ? counter.z - g.position.z : counter.z + 3 - g.position.z;
         if (Math.hypot(fx, fz) > 0.01) g.rotation.y = Math.atan2(fx, fz);
       }
+      if (w) this.poseFig(g, w.wx.length > 0, w.ty < 0 && !w.wx.length);
       const tag = g.userData.tag as THREE.Mesh | undefined;
       if (tag) tag.quaternion.copy(this.camera.quaternion);
     }
@@ -1263,7 +1341,7 @@ export class Game {
       const w = this.devWalk.get(d.id);
       const path = { wx: [0, 1.5, 3.2, st.x, st.x], wz: [9.5, 9, 6.6, 6.6, st.z], tx: st.x };
       if (!this.devs.has(d.id)) {
-        const g = this.makeRemote(d.name, 0x4f7a5a);
+        const g = this.makeRemote(d.name, variantForId(d.id));
         g.position.set(0, 0, 15.6);
         g.rotation.y = Math.PI;
         this.devs.set(d.id, g);
@@ -1320,6 +1398,7 @@ export class Game {
       // sentado no banco ao chegar (em pé andando/saindo)
       const seated = w && !w.wx.length && !w.leaving;
       g.position.y += ((seated ? -0.15 : 0) - g.position.y) * ky;
+      this.poseFig(g, !!w?.wx.length, !!seated);
       const tag = g.userData.tag as THREE.Mesh | undefined;
       if (tag) tag.quaternion.copy(this.camera.quaternion);
     }
@@ -1333,7 +1412,7 @@ export class Game {
       seen.add(r.id);
       const w = this.recepWalk.get(r.id);
       if (!this.receps.has(r.id)) {
-        const g = this.makeRemote(r.name, 0x4a6b8f);
+        const g = this.makeRemote(r.name, variantForId(r.id));
         g.position.set(0, 0, 15.6);
         g.rotation.y = Math.PI;
         this.receps.set(r.id, g);
@@ -1395,6 +1474,7 @@ export class Game {
           g.rotation.y = Math.atan2(dx, dz);
         }
       }
+      this.poseFig(g, !!w?.wx.length, false);
       const tag = g.userData.tag as THREE.Mesh | undefined;
       if (tag) tag.quaternion.copy(this.camera.quaternion);
     }
@@ -1602,6 +1682,7 @@ export class Game {
           g.rotation.y = Math.atan2(dx, dz);
         }
         g.position.y += (0 - g.position.y) * ky;
+        this.poseFig(g, d > 1.35, false);
         const tag = g.userData.tag as THREE.Mesh | undefined;
         if (tag) tag.quaternion.copy(this.camera.quaternion);
         continue;
@@ -1633,6 +1714,7 @@ export class Game {
       }
       const seated = w && !w.wx.length && !w.leaving;
       g.position.y += ((seated ? -0.15 : 0) - g.position.y) * ky;
+      this.poseFig(g, !!w?.wx.length, !!seated);
       const tag = g.userData.tag as THREE.Mesh | undefined;
       if (tag) tag.quaternion.copy(this.camera.quaternion);
     }
@@ -1681,7 +1763,7 @@ export class Game {
       if (!tgt) return;
       seen.add(t.id);
       if (!this.techs.has(t.id)) {
-        const g = this.makeRemote(t.name, 0xd08030);
+        const g = this.makeRemote(t.name, variantForId(t.id));
         g.position.set(0, 0, 15.6);
         g.rotation.y = Math.PI;
         this.techs.set(t.id, g);
@@ -1737,6 +1819,7 @@ export class Game {
           g.rotation.y = Math.atan2(dx, dz);
         }
       }
+      this.poseFig(g, !!w?.wx.length, false);
       const tag = g.userData.tag as THREE.Mesh | undefined;
       if (tag) tag.quaternion.copy(this.camera.quaternion);
     }
@@ -1949,7 +2032,30 @@ export class Game {
     }
   }
   applyPlaque(roomId: string, text: string) {
+    if (roomId === 'COPA_TV') {
+      this.setTVState(text.trim().toLowerCase() === 'on');
+      return;
+    }
     this.env.plaques.find((p) => p.roomId === roomId)?.setText(text);
+  }
+  // ponytail: TV da copa — liga/desliga local + avisa p/ persistir (roomState COPA_TV)
+  onToggleTV: ((on: boolean) => void) | null = null;
+  tvSwitchTarget = false;
+  setTVState(on: boolean) {
+    this.tvPlaying = on;
+    try {
+      if (on) void this.tvVideo?.play().catch(() => {});
+      else this.tvVideo?.pause();
+    } catch { /* sem vídeo: só o estado */ }
+    const t = this.tvSwitchGroup?.userData?.toggle as THREE.Mesh | undefined;
+    if (t) t.position.y = on ? 0.16 : 0.1;
+    this.drawTVScreen();
+  }
+  toggleTV() {
+    const on = !this.tvPlaying;
+    this.setTVState(on);
+    this.onToggleTV?.(on);
+    this.sound.noise(0.05, 0.1, 900);
   }
   enterDesktop() {
     this.state.mode = 'desktop';

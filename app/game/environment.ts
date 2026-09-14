@@ -507,11 +507,27 @@ export function createEnvironment(
   const spawnHalf = 4;
   const wallZ = roomCenters[0] + roomWidth / 2 + 1.8;
   box(corridorWallMat, -spawnHalf, ceilingHeight / 2, spawnZ, 0.3, ceilingHeight, 4.2);
-  box(corridorWallMat, spawnHalf, ceilingHeight / 2, spawnZ, 0.3, ceilingHeight, 4.2);
+  // leste com vão da porta do beco/copa (z 14.9..16.1, alinhado à porta da copa)
+  box(corridorWallMat, spawnHalf, ceilingHeight / 2, 14.7, 0.3, ceilingHeight, 0.4);
+  box(corridorWallMat, spawnHalf, ceilingHeight / 2, 17.4, 0.3, ceilingHeight, 2.6);
   box(corridorWallMat, 0, ceilingHeight / 2, spawnZ + 2.1, 2 * spawnHalf + 0.3, ceilingHeight, 0.3);
   collider(-spawnHalf, spawnZ, 0.3, 4.2);
-  collider(spawnHalf, spawnZ, 0.3, 4.2);
+  collider(spawnHalf, 14.7, 0.3, 0.4);
+  collider(spawnHalf, 17.4, 0.3, 2.6);
   collider(0, spawnZ + 2.1, 2 * spawnHalf + 0.3, 0.3);
+  box(frameMat, spawnHalf, panelH + (ceilingHeight - panelH) / 2, 15.5, 0.12, ceilingHeight - panelH, doorHalf * 2);
+  // porta leste do spawn → beco → copa (abre por proximidade, igual às outras)
+  const spawnEastPivot = new THREE.Group();
+  spawnEastPivot.position.set(spawnHalf, 0, 15.5 - doorHalf);
+  const spawnEastLeaf = new THREE.Mesh(unitBox, woodMat);
+  spawnEastLeaf.scale.set(0.06, panelH, doorHalf * 2);
+  spawnEastLeaf.position.set(0, panelH / 2, doorHalf);
+  const spawnEastHandle = new THREE.Mesh(unitBox, handleMat);
+  spawnEastHandle.scale.set(0.06, 0.05, 0.16);
+  spawnEastHandle.position.set(0.06, 1.05, doorHalf * 2 - 0.22);
+  spawnEastPivot.add(spawnEastLeaf, spawnEastHandle);
+  scene.add(spawnEastPivot);
+  doors.push({ group: spawnEastPivot, x: spawnHalf, z: 15.5, side: 1, half: doorHalf, plane: 'x' });
   const segW = (2 * spawnHalf - doorHalf * 2) / 2;
   box(corridorWallMat, -doorHalf - segW / 2, ceilingHeight / 2, wallZ, segW, ceilingHeight, 0.3);
   box(corridorWallMat, doorHalf + segW / 2, ceilingHeight / 2, wallZ, segW, ceilingHeight, 0.3);
@@ -531,25 +547,26 @@ export function createEnvironment(
   doors.push({ group: spawnPivot, x: 0, z: wallZ, side: 1, half: doorHalf, plane: 'z' });
 
   // --- Copa (nordeste, grande): 4 mesas x 6 cadeiras + TV + balcão da cozinha ---
-  // ponytail: paredes/colisores fechados; porta oeste p/ o beco (x 4..6)
-  const copa = { minX: 6, maxX: 16, minZ: 13.5, maxZ: 18.5 };
+  // espaço amplo p/ jogador andar: beco alargado p/ x=4 (porta do spawn) até x=16
+  const copa = { minX: 4, maxX: 16, minZ: 13.5, maxZ: 18.5 };
   const copaDoorZ = 15.5;
-  // oeste com vão da porta
-  box(corridorWallMat, 6, ceilingHeight / 2, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, ceilingHeight, (copaDoorZ - doorHalf) - copa.minZ);
-  box(corridorWallMat, 6, ceilingHeight / 2, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, ceilingHeight, copa.maxZ - (copaDoorZ + doorHalf));
-  collider(6, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, (copaDoorZ - doorHalf) - copa.minZ);
-  collider(6, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, copa.maxZ - (copaDoorZ + doorHalf));
+  // oeste com vão da porta (agora em x=4, alinhado à porta do spawn)
+  box(corridorWallMat, 4, ceilingHeight / 2, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, ceilingHeight, (copaDoorZ - doorHalf) - copa.minZ);
+  box(corridorWallMat, 4, ceilingHeight / 2, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, ceilingHeight, copa.maxZ - (copaDoorZ + doorHalf));
+  collider(4, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, (copaDoorZ - doorHalf) - copa.minZ);
+  collider(4, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, copa.maxZ - (copaDoorZ + doorHalf));
   box(frameMat, 6, panelH + (ceilingHeight - panelH) / 2, copaDoorZ, 0.12, ceilingHeight - panelH, doorHalf * 2);
   // leste / norte / sul fechadas
   box(corridorWallMat, 16, ceilingHeight / 2, 16, 0.3, ceilingHeight, 5.3);
   box(corridorWallMat, 11, ceilingHeight / 2, 18.5, 10.3, ceilingHeight, 0.3);
-  box(corridorWallMat, 11, ceilingHeight / 2, 13.5, 10.3, ceilingHeight, 0.3);
+  // sul estendida até x=4: sela o beco (sem fuga para o vazio a leste da E1)
+  box(corridorWallMat, 10, ceilingHeight / 2, 13.5, 12, ceilingHeight, 0.3);
   collider(16, 16, 0.3, 5.3);
   collider(11, 18.5, 10.3, 0.3);
-  collider(11, 13.5, 10.3, 0.3);
-  // porta da copa (abre por proximidade)
+  collider(10, 13.5, 12, 0.3);
+  // porta da copa (abre por proximidade) — agora em x=4
   const copaPivot = new THREE.Group();
-  copaPivot.position.set(6, 0, copaDoorZ - doorHalf);
+  copaPivot.position.set(4, 0, copaDoorZ - doorHalf);
   const copaLeaf = new THREE.Mesh(unitBox, woodMat);
   copaLeaf.scale.set(0.06, panelH, doorHalf * 2);
   copaLeaf.position.set(0, panelH / 2, doorHalf);
@@ -558,8 +575,11 @@ export function createEnvironment(
   copaHandle.position.set(0.06, 1.05, doorHalf * 2 - 0.22);
   copaPivot.add(copaLeaf, copaHandle);
   scene.add(copaPivot);
-  doors.push({ group: copaPivot, x: 6, z: copaDoorZ, side: 1, half: doorHalf, plane: 'x' });
-  makePlaque('COPA', 5.82, 1.6, copaDoorZ + 1.2, -Math.PI / 2);
+  doors.push({ group: copaPivot, x: 4, z: copaDoorZ, side: 1, half: doorHalf, plane: 'x' });
+  makePlaque('COPA', 3.82, 1.6, copaDoorZ + 1.2, -Math.PI / 2).setText('COPA');
+  // sinalização: corredor (antes da porta do spawn) + dentro do spawn (parede leste)
+  makePlaque('COPAVIA', -1.0, 1.6, 14.11, Math.PI).setText('COPA VIA SPAWN');
+  makePlaque('COPALEST', 3.81, 1.6, 17.2, -Math.PI / 2).setText('COPA A LESTE');
   // 4 mesas grandes (2.4 x 1.2) + 6 cadeiras cada (3 por lado) = 24
   const copaChairs: { x: number; z: number; ry: number }[] = [];
   for (const [tx, tz] of [[8.5, 15], [12.5, 15], [8.5, 17.2], [12.5, 17.2]] as const) {
@@ -580,9 +600,53 @@ export function createEnvironment(
   box(woodMat, 14.6, 0.5, 16, 0.8, 1.0, 3.0);
   collider(14.6, 16, 0.8, 3.0, 1.0);
   const copaCounter = { x: 15.4, z: 16 };
-  // TV grande na parede norte (textura atualizada pelo engine: título + equalizador)
-  box(frameMat, 11, 1.9, 18.42, 3.4, 2.0, 0.1);
-  const copaTV = { x: 11, y: 1.9, z: 18.34 };
+  // TV grande na parede norte (tela de vídeo HTML5 + equalizador via engine)
+  const tvFrame = new THREE.Mesh(
+    new THREE.BoxGeometry(3.4, 2.0, 0.1),
+    frameMat,
+  );
+  tvFrame.position.set(11, 1.9, 18.42);
+  scene.add(tvFrame);
+
+  // tela de vídeo (HTML5 <video> → CanvasTexture)
+  const video = document.createElement('video');
+  video.src = '/copa-video.mp4';
+  video.loop = true;
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+
+  const videoCanvas = document.createElement('canvas');
+  videoCanvas.width = 512;
+  videoCanvas.height = 288;
+  const videoCtx = videoCanvas.getContext('2d')!;
+
+  const videoTex = new THREE.CanvasTexture(videoCanvas);
+  videoTex.colorSpace = THREE.SRGBColorSpace;
+
+  const videoScreen = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.0, 1.7),
+    new THREE.MeshBasicMaterial({ map: videoTex, transparent: true }),
+  );
+  videoScreen.position.set(11, 1.9, 18.34);
+  videoScreen.rotation.y = Math.PI;
+  videoScreen.userData = { video, videoCanvas, videoCtx, videoTex, playing: false };
+  scene.add(videoScreen);
+
+  // Switch ao lado da TV (direita) — liga/desliga vídeo + áudio
+  const switchGroup = new THREE.Group();
+  const switchBase = new THREE.Mesh(unitBox, frameMat);
+  switchBase.scale.set(0.12, 0.18, 0.08);
+  switchBase.position.set(0, 0, 0);
+  const switchToggle = new THREE.Mesh(unitBox, ledMat);
+  switchToggle.scale.set(0.06, 0.12, 0.06);
+  switchToggle.position.set(0, 0.16, 0.06);
+  switchGroup.add(switchBase, switchToggle);
+  switchGroup.position.set(12.8, 1.9, 18.35);
+  switchGroup.userData = { isSwitch: true, target: 'copaTV', toggle: switchToggle, state: false };
+  scene.add(switchGroup);
+
+  const copaTV = { x: 11, y: 1.9, z: 18.34, videoScreen, switchGroup };
   // luz da copa (acende por proximidade, igual corredor)
   box(ledMat, 11, ceilingHeight - 0.03, 16, 1.8, 0.05, 1.2);
   const copaLight = new THREE.PointLight(0xfff2e0, 12, 14, 2);

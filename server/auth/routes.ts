@@ -6,6 +6,7 @@ import { users } from '../db/schema.ts';
 import { hashPassword, verifyPassword } from './password.ts';
 import { signToken } from './tokens.ts';
 
+const VARIANTS = ['azul', 'verde', 'vermelho', 'roxo'] as const;
 const creds = z.object({
   username: z
     .string()
@@ -15,20 +16,21 @@ const creds = z.object({
     .max(24)
     .regex(/^[\w.-]+$/),
   password: z.string().min(4).max(72),
+  character: z.enum(VARIANTS).optional().default('azul'),
 });
 
 export async function registerAuthRoutes(app: FastifyInstance) {
   app.post('/auth/register', async (req, reply) => {
     const parsed = creds.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'dados inválidos' });
-    const { username, password } = parsed.data;
+    const { username, password, character } = parsed.data;
     const existing = await db.select().from(users).where(eq(users.username, username));
     if (existing.length) return reply.code(409).send({ error: 'usuário em uso' });
     const [user] = await db
       .insert(users)
-      .values({ username, passwordHash: await hashPassword(password) })
+      .values({ username, passwordHash: await hashPassword(password), character })
       .returning();
-    return { token: signToken(user.id, user.username), username: user.username };
+    return { token: signToken(user.id, user.username), username: user.username, character: user.character };
   });
 
   app.post('/auth/login', async (req, reply) => {
@@ -38,6 +40,6 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     if (!user || !(await verifyPassword(password, user.passwordHash)))
       return reply.code(401).send({ error: 'login inválido' });
-    return { token: signToken(user.id, user.username), username: user.username };
+    return { token: signToken(user.id, user.username), username: user.username, character: user.character ?? 'azul' };
   });
 }

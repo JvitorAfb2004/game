@@ -19,6 +19,7 @@ import type { GraphicsPreset } from './game/graphics';
 import { api } from './api';
 import { Notepad, Calculator, PlaqueEditor } from './game/desktop';
 import { CompanyApp } from './game/company';
+import { FIGURE_VARIANTS, type FigureVariantId } from './game/figures';
 import {
   XPWindow,
   useWindows,
@@ -68,6 +69,7 @@ export default function Home() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [character, setCharacter] = useState<FigureVariantId>('azul');
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState('');
   const [session, setSession] = useState<{ token: string; username: string } | null>(
@@ -230,6 +232,7 @@ export default function Home() {
         engine.current.onDropBox = (boxId, x, z) => n.dropBox(boxId, x, z);
         engine.current.onNotice = (msg) => setNotice(msg);
         engine.current.onPlaceBox = (boxId, station, room) => n.placeBox(boxId, station, room);
+        engine.current.onToggleTV = (on) => n.plaque('COPA_TV', on ? 'on' : 'off');
         engine.current.onUse = (roomId) => n.using(roomId);
       }
     });
@@ -456,6 +459,7 @@ export default function Home() {
                   authMode,
                   username,
                   password,
+                  authMode === 'register' ? character : undefined,
                 );
                 setSession({ token, username: name });
               } catch (err) {
@@ -487,6 +491,27 @@ export default function Home() {
                 minLength={4}
               />
             </label>
+            {authMode === 'register' && (
+              <fieldset className="char-pick">
+                <legend>Personagem</legend>
+                {FIGURE_VARIANTS.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className={character === v.id ? 'char-card selected' : 'char-card'}
+                    aria-pressed={character === v.id}
+                    onClick={() => setCharacter(v.id)}
+                  >
+                    <span
+                      className="char-swatch"
+                      style={{ background: `#${v.shirt.toString(16).padStart(6, '0')}` }}
+                      aria-hidden="true"
+                    />
+                    {v.name}
+                  </button>
+                ))}
+              </fieldset>
+            )}
             {authError && <p className="login-error">{authError}</p>}
             {!backendOn && (
               <p className="login-error">

@@ -34,6 +34,7 @@ export async function migrate() {
     );
     ALTER TABLE computer_files ADD COLUMN IF NOT EXISTS pos_x real NOT NULL DEFAULT 0;
     ALTER TABLE computer_files ADD COLUMN IF NOT EXISTS pos_y real NOT NULL DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS character text NOT NULL DEFAULT 'azul';
     CREATE TABLE IF NOT EXISTS computer_state (
       computer_id text PRIMARY KEY,
       state jsonb NOT NULL DEFAULT '{}',

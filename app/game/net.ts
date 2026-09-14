@@ -1,6 +1,7 @@
 export type NetPlayer = {
   id: string;
   username: string;
+  character?: string;
   x: number;
   z: number;
   yaw: number;

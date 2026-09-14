@@ -36,7 +36,7 @@ export async function registerWs(app: FastifyInstance) {
       }
       const spawn = await room.loadSpawn(userId);
       const conn = { send: (d: string) => socket.send(d) };
-      room.addPlayer({ id: userId, username, ...spawn }, conn);
+      room.addPlayer({ id: userId, username, character: user.character ?? 'azul', ...spawn }, conn);
       socket.send(
         JSON.stringify({
           type: 'welcome',

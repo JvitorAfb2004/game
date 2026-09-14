@@ -42,10 +42,11 @@ export const api = {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
   },
-  async auth(kind: 'register' | 'login', username: string, password: string) {
-    const data = await post<{ token: string; username: string }>(`/auth/${kind}`, {
+  async auth(kind: 'register' | 'login', username: string, password: string, character?: string) {
+    const data = await post<{ token: string; username: string; character?: string }>(`/auth/${kind}`, {
       username,
       password,
+      ...(character ? { character } : {}),
     });
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, data.username);
