@@ -123,12 +123,10 @@ export function createEnvironment(
     color: 0x9aa0a0,
     roughness: 0.92,
   });
-  applyTex(wallMat, '/tex/wall_brick_small_stone.png', [2, 1]);
   const corridorWallMat = new THREE.MeshStandardMaterial({
     color: 0x565c62,
     roughness: 0.92,
   });
-  applyTex(corridorWallMat, '/tex/wall_timber_structure.png', [1.5, 1]);
   const baseboardMat = new THREE.MeshStandardMaterial({
     color: 0x353b3f,
     roughness: 0.7,
@@ -158,7 +156,6 @@ export function createEnvironment(
     color: 0x6b4a2f,
     roughness: 0.85,
   });
-  applyTex(woodMat, '/tex/door_wood.png', [1, 1]);
   const woodEdgeMat = new THREE.MeshStandardMaterial({
     color: 0x4a2f1c,
     roughness: 0.8,
