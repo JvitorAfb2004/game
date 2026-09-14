@@ -6,9 +6,9 @@ const scene = new THREE.Scene();
 const env = createEnvironment(THREE, scene);
 
 assert.equal(env.spawnPoints.length, 6, 'six desk points');
-assert.equal(env.doors.length, 9, 'six room doors + spawn door + reception door + copa door');
+assert.equal(env.doors.length, 10, 'six room doors + spawn south + spawn east + reception + copa');
 assert.equal(env.rooms.length, 6, 'six switchable rooms');
-assert.equal(env.plaques.length, 7, 'six led plaques + copa');
+assert.equal(env.plaques.length, 9, 'six room plaques + COPA + COPAVIA + COPALEST');
 assert.deepEqual(
   env.rooms.map((r) => r.roomId),
   ['W1', 'W2', 'W3', 'E1', 'E2', 'E3'],

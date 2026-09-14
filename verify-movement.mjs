@@ -15,7 +15,8 @@ await fs.writeFile(
   outputText
     .replaceAll("'./environment'", "'./app/game/environment.ts'")
     .replaceAll("'./character'", "'./app/game/character.ts'")
-    .replaceAll("'./graphics'", "'./app/game/graphics.ts'"),
+    .replaceAll("'./graphics'", "'./app/game/graphics.ts'")
+    .replaceAll("'./figures'", "'./app/game/figures.ts'"),
 );
 const { Game } = await import('./.verify-engine.mjs');
 globalThis.document = { pointerLockElement: null };

@@ -650,29 +650,41 @@ export function createEnvironment(
   tvFrame.position.set(11, 1.9, 18.42);
   scene.add(tvFrame);
 
-  // tela de vídeo (HTML5 <video> → CanvasTexture)
-  const video = document.createElement('video');
-  video.src = '/copa-video.mp4';
-  video.loop = true;
-  video.muted = true;
-  video.playsInline = true;
-  video.preload = 'auto';
-
-  const videoCanvas = document.createElement('canvas');
-  videoCanvas.width = 512;
-  videoCanvas.height = 288;
-  const videoCtx = videoCanvas.getContext('2d')!;
-
-  const videoTex = new THREE.CanvasTexture(videoCanvas);
-  videoTex.colorSpace = THREE.SRGBColorSpace;
-
-  const videoScreen = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.0, 1.7),
-    new THREE.MeshBasicMaterial({ map: videoTex, transparent: true }),
-  );
+  // tela de vídeo (HTML5 <video> → CanvasTexture) — guard para SSR/verify
+  let video: HTMLVideoElement | null = null;
+  let videoCanvas: HTMLCanvasElement | null = null;
+  let videoCtx: CanvasRenderingContext2D | null = null;
+  let videoTex: ThreeType.CanvasTexture | null = null;
+  let videoScreen: ThreeType.Mesh;
+  if (typeof document !== 'undefined') {
+    const v = document.createElement('video');
+    v.src = '/copa-video.mp4';
+    v.loop = true;
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    video = v;
+    const vc = document.createElement('canvas');
+    vc.width = 512;
+    vc.height = 288;
+    videoCanvas = vc;
+    videoCtx = vc.getContext('2d')!;
+    videoTex = new THREE.CanvasTexture(vc);
+    videoTex.colorSpace = THREE.SRGBColorSpace;
+    videoScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.0, 1.7),
+      new THREE.MeshBasicMaterial({ map: videoTex, transparent: true }),
+    );
+    videoScreen.userData = { video, videoCanvas, videoCtx, videoTex, playing: false };
+  } else {
+    videoScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.0, 1.7),
+      new THREE.MeshBasicMaterial({ color: 0x0b0f12 }),
+    );
+    videoScreen.userData = { video: null, videoCanvas: null, videoCtx: null, videoTex: null, playing: false };
+  }
   videoScreen.position.set(11, 1.9, 18.34);
   videoScreen.rotation.y = Math.PI;
-  videoScreen.userData = { video, videoCanvas, videoCtx, videoTex, playing: false };
   scene.add(videoScreen);
 
   // Switch ao lado da TV (direita) — liga/desliga vídeo + áudio
