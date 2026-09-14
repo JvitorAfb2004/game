@@ -32,6 +32,9 @@ export function createEnvironment(
     switch: { x: number; y: number; z: number };
   }[] = [];
   const notebooks: { roomId: string; x: number; y: number; z: number }[] = [];
+  const devStations: { x: number; z: number; ry: number; mx: number }[] = [];
+  // monitores das salas como meshes individuais (liga/desliga por máquina instalada)
+  const roomMonitors: { roomId: string; group: ThreeType.Group }[] = [];
 
   const corridorWidth = 3;
   const roomDepth = 5.5;
@@ -225,13 +228,17 @@ export function createEnvironment(
       const z0 = center - roomWidth / 2;
       const z1 = center + roomWidth / 2;
       const xCenter = side * (halfCorridor + roomDepth / 2);
-      box(wallMat, side * xFar, ceilingHeight / 2, center, 0.3, ceilingHeight, roomWidth);
+      // E1 (leste, perto do spawn) é a sala grande de devs: fundo a x=11
+      const isDevRoom = side === 1 && ri === 0;
+      const farAbs = isDevRoom ? 11 : xFar;
+      const farX = side * farAbs;
+      box(wallMat, farX, ceilingHeight / 2, center, 0.3, ceilingHeight, roomWidth);
       box(wallMat, xCenter, ceilingHeight / 2, z0, roomDepth, ceilingHeight, 0.3);
       box(wallMat, xCenter, ceilingHeight / 2, z1, roomDepth, ceilingHeight, 0.3);
-      box(baseboardMat, side * (xFar - 0.19), 0.07, center, 0.08, 0.14, roomWidth);
+      box(baseboardMat, side * (farAbs - 0.19), 0.07, center, 0.08, 0.14, roomWidth);
       box(baseboardMat, xCenter, 0.07, z0 + 0.19, roomDepth, 0.14, 0.08);
       box(baseboardMat, xCenter, 0.07, z1 - 0.19, roomDepth, 0.14, 0.08);
-      collider(side * xFar, center, 0.3, roomWidth);
+      collider(farX, center, 0.3, roomWidth);
       collider(xCenter, z0, roomDepth, 0.3);
       collider(xCenter, z1, roomDepth, 0.3);
 
@@ -282,7 +289,7 @@ export function createEnvironment(
       sw.position.set(side * 2.4, 1.25, swZ);
       scene.add(sw);
 
-      const roomX = side * (halfCorridor + roomDepth / 2);
+      const roomX = side * (halfCorridor + (farAbs - halfCorridor) / 2);
       const roomLight = new THREE.PointLight(0xffe9c8, 8, 9, 2);
       roomLight.position.set(roomX, ceilingHeight - 0.3, center);
       roomLight.visible = false;
@@ -312,10 +319,43 @@ export function createEnvironment(
       box(frameMat, deskX + 0.35, 0.36, center - 0.7, 0.08, 0.72, 0.08);
       box(frameMat, deskX - 0.35, 0.36, center + 0.7, 0.08, 0.72, 0.08);
       box(frameMat, deskX + 0.35, 0.36, center + 0.7, 0.08, 0.72, 0.08);
-      box(frameMat, deskX + side * 0.02, 0.78, center, 0.34, 0.03, 0.42);
-      box(ledMat, deskX - side * 0.28, 0.99, center, 0.03, 0.34, 0.42);
+      // monitor individual por sala (vermelho se quebrado, some sem máquina)
+      const monGroup = new THREE.Group();
+      const monBase = new THREE.Mesh(unitBox, frameMat);
+      monBase.scale.set(0.34, 0.03, 0.42);
+      monBase.position.set(deskX + side * 0.02, 0.78, center);
+      const monScrMat = ledMat.clone();
+      const monScr = new THREE.Mesh(unitBox, monScrMat);
+      monScr.scale.set(0.03, 0.34, 0.42);
+      monScr.position.set(deskX - side * 0.28, 0.99, center);
+      monGroup.add(monBase, monScr);
+      monGroup.userData.scrMat = monScrMat;
+      monGroup.visible = roomId === 'W1'; // W1 vem com PC; demais compram
+      scene.add(monGroup);
+      roomMonitors.push({ roomId, group: monGroup });
       collider(deskX, center, 1.0, 1.7);
-      notebooks.push({ roomId, x: deskX - side * 0.28, y: 0.99, z: center });
+      // ponto de acesso na borda do teclado (lado da sala) — sem precisar atravessar a mesa
+      notebooks.push({ roomId, x: deskX - side * 0.62, y: 0.95, z: center });
+      // sala de devs: 2 mesas compridas, 6 postos cada (3 por lado) = 12
+      if (isDevRoom) {
+        for (const tx of [7.6, 9.6]) {
+          box(woodMat, tx, 0.72, center, 1.2, 0.06, 4.4);
+          for (const lx of [tx - 0.5, tx + 0.5])
+            for (const lz of [center - 2, center + 2]) box(woodMat, lx, 0.36, lz, 0.12, 0.72, 0.12);
+          box(woodMat, tx, 0.25, center, 1.0, 0.05, 4.0);
+          collider(tx, center, 1.2, 4.4, 0.8);
+          for (const sx of [tx - 1.0, tx + 1.0])
+            for (const sz of [center - 1.6, center, center + 1.6]) {
+              box(frameMat, sx, 0.225, sz, 0.45, 0.45, 0.45);
+              devStations.push({
+                x: sx,
+                z: sz,
+                ry: sx < tx ? Math.PI / 2 : -Math.PI / 2,
+                mx: sx + (sx < tx ? 0.45 : -0.45),
+              });
+            }
+        }
+      }
       makePlaque(
         roomId,
         side * (halfCorridor - 0.04),
@@ -347,13 +387,124 @@ export function createEnvironment(
     collider(side * halfCorridor, zTopEnd + 0.75, 0.3, 1.8);
     collider(side * halfCorridor, zBottomEnd - 0.75, 0.3, 1.8);
   }
-  // Corridor end wall (south). The north end opens into the spawn room.
-  box(corridorWallMat, 0, ceilingHeight / 2, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, ceilingHeight, 0.3);
-  collider(0, roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8, corridorWidth + 0.6, 0.3);
+  // Corridor end wall (south): single wall shared with reception, door gap.
+  // Parede única — sem parede dupla na frente do balcão e sem fuga para fora.
+  const southZ = roomCenters[roomCenters.length - 1] - roomWidth / 2 - 1.8;
+  const southSegW = (corridorWidth + 0.6 - doorHalf * 2) / 2;
+  box(corridorWallMat, -doorHalf - southSegW / 2, ceilingHeight / 2, southZ, southSegW, ceilingHeight, 0.3);
+  box(corridorWallMat, doorHalf + southSegW / 2, ceilingHeight / 2, southZ, southSegW, ceilingHeight, 0.3);
+  collider(-doorHalf - southSegW / 2, southZ, southSegW, 0.3);
+  collider(doorHalf + southSegW / 2, southZ, southSegW, 0.3);
+  // continua até as laterais da recepção (sela a fuga por fora)
+  const southOuterW = 5 - (doorHalf + southSegW);
+  box(corridorWallMat, doorHalf + southSegW + southOuterW / 2, ceilingHeight / 2, southZ, southOuterW, ceilingHeight, 0.3);
+  box(corridorWallMat, -doorHalf - southSegW - southOuterW / 2, ceilingHeight / 2, southZ, southOuterW, ceilingHeight, 0.3);
+  collider(doorHalf + southSegW + southOuterW / 2, southZ, southOuterW, 0.3);
+  collider(-doorHalf - southSegW - southOuterW / 2, southZ, southOuterW, 0.3);
+  box(frameMat, 0, panelH + (ceilingHeight - panelH) / 2, southZ, doorHalf * 2, ceilingHeight - panelH, 0.12);
+  // porta da recepção (abre por proximidade, igual à do spawn)
+  const recPivot = new THREE.Group();
+  recPivot.position.set(-doorHalf, 0, southZ);
+  const recLeaf = new THREE.Mesh(unitBox, woodMat);
+  recLeaf.scale.set(doorHalf * 2, panelH, 0.06);
+  recLeaf.position.set(doorHalf, panelH / 2, 0);
+  const recHandle = new THREE.Mesh(unitBox, handleMat);
+  recHandle.scale.set(0.16, 0.05, 0.03);
+  recHandle.position.set(doorHalf * 2 - 0.22, 1.05, 0.06);
+  recPivot.add(recLeaf, recHandle);
+  scene.add(recPivot);
+  doors.push({ group: recPivot, x: 0, z: southZ, side: 1, half: doorHalf, plane: 'z' });
+
+  // --- Recepcao (sul, ponta oposta ao spawn) ---
+  const recZ = -27;
+  const recHalfX = 5;
+  const recHalfZ = 3.5;
+  // laterais vão da parede sul até o fundo (sem fresta para fora)
+  const recSideD = (recZ - recHalfZ - southZ) * -1;
+  const recSideZ = (southZ + (recZ - recHalfZ)) / 2;
+  box(corridorWallMat, 0, ceilingHeight / 2, recZ - recHalfZ, recHalfX * 2, ceilingHeight, 0.3);
+  box(corridorWallMat, -recHalfX, ceilingHeight / 2, recSideZ, 0.3, ceilingHeight, recSideD);
+  box(corridorWallMat, recHalfX, ceilingHeight / 2, recSideZ, 0.3, ceilingHeight, recSideD);
+  collider(0, recZ - recHalfZ, recHalfX * 2, 0.3);
+  collider(-recHalfX, recSideZ, 0.3, recSideD);
+  collider(recHalfX, recSideZ, 0.3, recSideD);
+  // balcao largo: 3 postos (PC + interruptor cada)
+  const recStations = [-1.8, 0, 1.8];
+  box(woodMat, 0, 0.55, recZ - 1.6, 5.4, 1.1, 0.6);
+  collider(0, recZ - 1.6, 5.4, 0.6, 1.1);
+  for (const bx of [-2, 0, 2])
+    box(frameMat, bx, 0.25, recZ + 0.6, 0.5, 0.5, 0.5);
+  // luz + painel da recepcao
+  box(ledMat, 0, ceilingHeight - 0.03, recZ, 1.8, 0.05, 1.2);
+  const recLightMesh = new THREE.PointLight(0xfff2e0, 12, 14, 2);
+  recLightMesh.position.set(0, ceilingHeight - 0.16, recZ);
+  recLightMesh.visible = false;
+  scene.add(recLightMesh);
+  (scene as unknown as { __recLight?: ThreeType.PointLight }).__recLight = recLightMesh;
+  // TV da senha na parede sul (vira para o balcao)
+  const tvCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+  if (tvCanvas) {
+    tvCanvas.width = 256;
+    tvCanvas.height = 96;
+  }
+  const tvCtx = tvCanvas?.getContext('2d') ?? null;
+  const tvTex = tvCanvas ? new THREE.CanvasTexture(tvCanvas) : null;
+  const tvMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, 0.8),
+    tvTex
+      ? new THREE.MeshBasicMaterial({ map: tvTex, transparent: true })
+      : new THREE.MeshBasicMaterial({ color: 0x0b0f12 }),
+  );
+  tvMesh.position.set(0, 2.1, recZ - recHalfZ + 0.2);
+  tvMesh.rotation.y = 0;
+  scene.add(tvMesh);
+  const setReception = (serving: number | null, waiting: number) => {
+    if (!tvCtx || !tvTex) return;
+    tvCtx.clearRect(0, 0, 256, 96);
+    tvCtx.fillStyle = '#0b0f12';
+    tvCtx.fillRect(0, 0, 256, 96);
+    tvCtx.fillStyle = '#7fd6c2';
+    tvCtx.font = 'bold 40px monospace';
+    tvCtx.textAlign = 'center';
+    tvCtx.fillText(serving ? `SENHA ${serving}` : 'RECEPÇÃO', 128, 45);
+    tvCtx.font = '20px monospace';
+    tvCtx.fillStyle = '#d8fff0';
+    tvCtx.fillText(`${waiting} NA FILA`, 128, 75);
+    tvTex.needsUpdate = true;
+  };
+  setReception(null, 0);
+  // spots da fila (4 banquinhos) + ponto do balcao
+  const receptionSpots = [-2.2, -0.7, 0.8, 2.3].map((x) => ({ x, z: recZ + 0.6 }));
+  const receptionCounter = { x: 0, z: recZ - 0.7 };
+  // 3 interruptores físicos "chamar próximo", um por posto (0.75m do PC)
+  const receptionSwitches = recStations.map((sx) => ({ x: sx - 0.75, y: 1.18, z: recZ - 1.32 }));
+  for (const sw of receptionSwitches) {
+    const swMesh = new THREE.Mesh(unitBox, switchMat);
+    swMesh.scale.set(0.12, 0.1, 0.08);
+    swMesh.position.set(sw.x, sw.y, sw.z);
+    scene.add(swMesh);
+    const swLed = new THREE.Mesh(unitBox, ledMat);
+    swLed.scale.set(0.06, 0.04, 0.02);
+    swLed.position.set(sw.x, sw.y + 0.09, sw.z);
+    scene.add(swLed);
+  }
+  // 3 PCs da recepção (REC, REC2, REC3) em cima do balcão, acesso pela frente
+  const recIds = ['REC', 'REC2', 'REC3'];
+  recStations.forEach((sx, i) => {
+    box(frameMat, sx, 1.12, recZ - 1.6, 0.4, 0.03, 0.3);
+    box(ledMat, sx, 1.3, recZ - 1.72, 0.4, 0.35, 0.03);
+    notebooks.push({ roomId: recIds[i], x: sx, y: 1.15, z: recZ - 1.32 });
+  });
+  // porta exclusiva dos bots-clientes na lateral leste (entram pelo lado, não atrás do balcão)
+  const botDoorZ = recZ - 0.5;
+  const botDoor = { x: recHalfX - 0.8, z: botDoorZ };
+  box(frameMat, recHalfX - 0.18, panelH / 2, botDoorZ, 0.1, panelH, doorHalf * 2 + 0.2);
+  box(woodMat, recHalfX - 0.26, panelH / 2, botDoorZ, 0.06, panelH, doorHalf * 2);
 
   // --- Sala de spawn (norte do corredor), porta de frente para o corredor ---
+  // ponytail: sala larga (8m): spawnHalf dimensiona laterais + fundo + testeira
   const spawnZ = 16.6;
-  const spawnHalf = 2;
+  const spawnHalf = 4;
   const wallZ = roomCenters[0] + roomWidth / 2 + 1.8;
   box(corridorWallMat, -spawnHalf, ceilingHeight / 2, spawnZ, 0.3, ceilingHeight, 4.2);
   box(corridorWallMat, spawnHalf, ceilingHeight / 2, spawnZ, 0.3, ceilingHeight, 4.2);
@@ -379,8 +530,69 @@ export function createEnvironment(
   scene.add(spawnPivot);
   doors.push({ group: spawnPivot, x: 0, z: wallZ, side: 1, half: doorHalf, plane: 'z' });
 
+  // --- Copa (nordeste, grande): 4 mesas x 6 cadeiras + TV + balcão da cozinha ---
+  // ponytail: paredes/colisores fechados; porta oeste p/ o beco (x 4..6)
+  const copa = { minX: 6, maxX: 16, minZ: 13.5, maxZ: 18.5 };
+  const copaDoorZ = 15.5;
+  // oeste com vão da porta
+  box(corridorWallMat, 6, ceilingHeight / 2, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, ceilingHeight, (copaDoorZ - doorHalf) - copa.minZ);
+  box(corridorWallMat, 6, ceilingHeight / 2, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, ceilingHeight, copa.maxZ - (copaDoorZ + doorHalf));
+  collider(6, (copa.minZ + copaDoorZ - doorHalf) / 2, 0.3, (copaDoorZ - doorHalf) - copa.minZ);
+  collider(6, (copaDoorZ + doorHalf + copa.maxZ) / 2, 0.3, copa.maxZ - (copaDoorZ + doorHalf));
+  box(frameMat, 6, panelH + (ceilingHeight - panelH) / 2, copaDoorZ, 0.12, ceilingHeight - panelH, doorHalf * 2);
+  // leste / norte / sul fechadas
+  box(corridorWallMat, 16, ceilingHeight / 2, 16, 0.3, ceilingHeight, 5.3);
+  box(corridorWallMat, 11, ceilingHeight / 2, 18.5, 10.3, ceilingHeight, 0.3);
+  box(corridorWallMat, 11, ceilingHeight / 2, 13.5, 10.3, ceilingHeight, 0.3);
+  collider(16, 16, 0.3, 5.3);
+  collider(11, 18.5, 10.3, 0.3);
+  collider(11, 13.5, 10.3, 0.3);
+  // porta da copa (abre por proximidade)
+  const copaPivot = new THREE.Group();
+  copaPivot.position.set(6, 0, copaDoorZ - doorHalf);
+  const copaLeaf = new THREE.Mesh(unitBox, woodMat);
+  copaLeaf.scale.set(0.06, panelH, doorHalf * 2);
+  copaLeaf.position.set(0, panelH / 2, doorHalf);
+  const copaHandle = new THREE.Mesh(unitBox, handleMat);
+  copaHandle.scale.set(0.06, 0.05, 0.16);
+  copaHandle.position.set(0.06, 1.05, doorHalf * 2 - 0.22);
+  copaPivot.add(copaLeaf, copaHandle);
+  scene.add(copaPivot);
+  doors.push({ group: copaPivot, x: 6, z: copaDoorZ, side: 1, half: doorHalf, plane: 'x' });
+  makePlaque('COPA', 5.82, 1.6, copaDoorZ + 1.2, -Math.PI / 2);
+  // 4 mesas grandes (2.4 x 1.2) + 6 cadeiras cada (3 por lado) = 24
+  const copaChairs: { x: number; z: number; ry: number }[] = [];
+  for (const [tx, tz] of [[8.5, 15], [12.5, 15], [8.5, 17.2], [12.5, 17.2]] as const) {
+    box(woodMat, tx, 0.72, tz, 2.4, 0.08, 1.2);
+    for (const lx of [tx - 0.9, tx + 0.9])
+      for (const lz of [tz - 0.45, tz + 0.45]) box(woodMat, lx, 0.36, lz, 0.12, 0.72, 0.12);
+    collider(tx, tz, 2.4, 1.2, 0.8);
+    for (const cx of [tx - 0.7, tx, tx + 0.7]) {
+      // lado sul (de frente p/ mesa)
+      box(woodEdgeMat, cx, 0.225, tz - 0.95, 0.45, 0.45, 0.45);
+      copaChairs.push({ x: cx, z: tz - 0.95, ry: 0 });
+      // lado norte
+      box(woodEdgeMat, cx, 0.225, tz + 0.95, 0.45, 0.45, 0.45);
+      copaChairs.push({ x: cx, z: tz + 0.95, ry: Math.PI });
+    }
+  }
+  // balcão da cozinha (leste) + ponto das cozinheiras
+  box(woodMat, 14.6, 0.5, 16, 0.8, 1.0, 3.0);
+  collider(14.6, 16, 0.8, 3.0, 1.0);
+  const copaCounter = { x: 15.4, z: 16 };
+  // TV grande na parede norte (textura atualizada pelo engine: título + equalizador)
+  box(frameMat, 11, 1.9, 18.42, 3.4, 2.0, 0.1);
+  const copaTV = { x: 11, y: 1.9, z: 18.34 };
+  // luz da copa (acende por proximidade, igual corredor)
+  box(ledMat, 11, ceilingHeight - 0.03, 16, 1.8, 0.05, 1.2);
+  const copaLight = new THREE.PointLight(0xfff2e0, 12, 14, 2);
+  copaLight.position.set(11, ceilingHeight - 0.16, 16);
+  copaLight.visible = false;
+  scene.add(copaLight);
+
   // Corridor ceiling lamps, each with its light directly beneath it.
   const corridorLights: { light: ThreeType.PointLight; z: number }[] = [];
+  corridorLights.push({ light: copaLight, z: 16 });
   for (const z of [7, -4, -15]) {
     box(ledMat, 0, ceilingHeight - 0.03, z, 1.4, 0.05, 1.4);
     const p = new THREE.PointLight(0xfff2e0, 9, 13, 2);
@@ -389,6 +601,15 @@ export function createEnvironment(
     scene.add(p);
     corridorLights.push({ light: p, z });
   }
+  // ponytail: luz do lobby spawn (estava escuro) + recepcao sul
+  box(ledMat, 0, ceilingHeight - 0.03, spawnZ, 1.4, 0.05, 1.4);
+  const spawnLight = new THREE.PointLight(0xfff2e0, 10, 12, 2);
+  spawnLight.position.set(0, ceilingHeight - 0.16, spawnZ);
+  spawnLight.visible = false;
+  scene.add(spawnLight);
+  corridorLights.push({ light: spawnLight, z: spawnZ });
+  const recLight = (scene as unknown as { __recLight?: ThreeType.PointLight }).__recLight;
+  if (recLight) corridorLights.push({ light: recLight, z: recZ });
 
   // Flush one InstancedMesh per material.
   for (const [material, matrices] of batches) {
@@ -426,6 +647,17 @@ export function createEnvironment(
     corridorLights,
     notebooks,
     plaques,
+    receptionSpots,
+    receptionCounter,
+    receptionSwitches,
+    botDoor,
+    devStations,
+    roomMonitors,
+    copaChairs,
+    copaTV,
+    copaBounds: copa,
+    copaCounter,
+    setReception,
     spawn: { x: 0, z: 15.6, yaw: 0 },
     spawnPoints,
     setRainCount(_count: number) {

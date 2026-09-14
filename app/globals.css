@@ -40,7 +40,12 @@
 .hud-players em{color:#ffb36b;font-style:normal}
 .hud-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7fd6c2}
 .hud-fps{position:fixed;top:84px;right:16px;z-index:30;color:#7fd6c2;font-family:monospace;font-size:.8rem;background:#0a0f1288;padding:.35rem .6rem;border-radius:4px}
+.hud-company{position:fixed;top:120px;right:16px;z-index:30;color:#ffe9c8;font-family:monospace;font-size:.75rem;background:#0a0f1288;padding:.35rem .6rem;border-radius:4px;border:1px solid #7fd6c240}
+.hud-carry{position:fixed;top:240px;left:16px;z-index:30;color:#ffe9c8;font-size:.75rem;background:#0a0f12cc;border:1px solid #ffd166;border-radius:4px;padding:.35rem .6rem}
 .xp-window{position:absolute;min-width:260px;max-width:min(460px,84vw);background:#ece9d8;color:#111;border:2px solid #0a246a;border-radius:6px 6px 3px 3px;box-shadow:4px 4px 12px #0007;font-family:Tahoma,Arial,sans-serif;font-size:.85rem;overflow:hidden}
+.xp-window.max{left:2vw;top:4vh;width:96vw;height:80vh;max-width:none;display:flex;flex-direction:column}
+.xp-window.max .xp-body{flex:1;overflow:auto}
+.xp-window.max .erp{max-height:none;height:100%}
 .xp-titlebar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:linear-gradient(#0a246a,#3a6ea5);color:#fff;padding:.25rem .35rem .25rem .6rem;font-weight:700;cursor:move;user-select:none;touch-action:none}
 .xp-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .xp-controls{display:flex;gap:3px;flex:0 0 auto}
@@ -66,3 +71,82 @@
 .xp-toolbar button{padding:.3rem .6rem}
 .xp-modal{border:2px solid #0a246a;background:#ece9d8;padding:.6rem;margin:.5rem 0}
 .xp-modal-actions{display:flex;gap:.4rem;margin-top:.5rem}
+/* ERP da empresa: sidebar + cards, visual de painel real */
+.erp{display:flex;min-height:340px;max-height:60vh;background:#f4f5f7;color:#1c2530;font-family:Tahoma,Arial,sans-serif;font-size:.82rem;border:1px solid #9aa3ad}
+.erp-side{width:132px;flex:0 0 auto;background:#1f2a37;color:#dbe3ec;display:flex;flex-direction:column;padding:.5rem .4rem;gap:2px}
+.erp-brand{font-size:.62rem;font-weight:700;letter-spacing:.12em;color:#8fa3b8;padding:.2rem .4rem .5rem}
+.erp-nav{display:flex;align-items:center;gap:.4rem;width:100%;background:none;border:0;border-left:3px solid transparent;color:#dbe3ec;font-size:.78rem;padding:.45rem .4rem;cursor:pointer;text-align:left}
+.erp-nav:hover{background:#2a3849}
+.erp-nav.active{background:#2a3849;border-left-color:#4da3ff;font-weight:700}
+.erp-badge{margin-left:auto;background:#c0392b;color:#fff;font-style:normal;font-size:.65rem;min-width:18px;text-align:center;border-radius:9px;padding:0 5px}
+.erp-side-foot{margin-top:auto;font-size:.65rem;color:#8fa3b8;padding:.4rem}
+.erp-main{flex:1;display:flex;flex-direction:column;min-width:0}
+.erp-top{display:flex;gap:.4rem;align-items:center;background:#fff;border-bottom:1px solid #dfe3e8;padding:.4rem .6rem}
+.erp-chip{font-family:monospace;font-size:.72rem;background:#e8eef4;border:1px solid #c4ced8;border-radius:3px;padding:.15rem .45rem}
+.erp-chip.neg{background:#fdecea;border-color:#e5a49d;color:#a93226}
+.erp-chip.call{background:#e7f4e4;border-color:#9cc79a;color:#1e6b1e;font-weight:700}
+.erp-chip.idle{color:#6b7683}
+.erp-page{padding:.6rem;overflow:auto}
+.erp-page h3{margin:0 0 .5rem;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:#0a246a}
+.erp-row-between{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.5rem}
+.erp-filters{border:0;margin:0;padding:0;display:flex;gap:.3rem}
+.erp-filters legend{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:#6b7683;padding:0;margin-bottom:.15rem}
+.erp-talk{display:flex;gap:.35rem;margin-top:.4rem}
+.erp-talk input{flex:1;border:1px solid #9aa3ad;border-radius:3px;padding:.3rem .5rem;font-size:.75rem;font-family:inherit}
+.erp-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.35rem}
+.erp-item{display:flex;align-items:center;gap:.5rem;background:#fff;border:1px solid #dfe3e8;border-radius:4px;padding:.4rem .5rem}
+.erp-item.called{border-color:#4da3ff;background:#eef5ff}
+.erp-item-main{flex:1;display:flex;flex-direction:column;min-width:0}
+.erp-item-main small{color:#5d6b7a}
+.erp-ticket{font-family:monospace;font-weight:700;background:#0a246a;color:#fff;border-radius:3px;padding:.15rem .4rem;font-size:.72rem}
+.erp-btn{border:1px solid #9aa3ad;background:#fff;border-radius:3px;padding:.3rem .6rem;font-size:.75rem;cursor:pointer;white-space:nowrap}
+.erp-btn:hover{background:#eef1f4}
+.erp-btn.primary{background:#0a246a;border-color:#0a246a;color:#fff}
+.erp-btn.primary:hover{background:#12327e}
+.erp-btn.ok{background:#1e7e34;border-color:#1e7e34;color:#fff}
+.erp-btn.danger{background:#fff;border-color:#a93226;color:#a93226}
+.erp-btn.danger:hover{background:#fdecea}
+.erp-empty{color:#6b7683;background:#fff;border:1px dashed #c4ced8;border-radius:4px;padding:.6rem}
+.erp-bubble{background:#fff;border:1px solid #dfe3e8;border-left:4px solid #4da3ff;border-radius:4px;padding:.5rem .6rem;margin-bottom:.5rem}
+.erp-meta{display:grid;grid-template-columns:1fr 1fr;gap:.35rem;margin:0 0 .5rem}
+.erp-meta div{background:#fff;border:1px solid #dfe3e8;border-radius:4px;padding:.3rem .5rem}
+.erp-meta dt{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:#6b7683}
+.erp-meta dd{margin:0;font-weight:700}
+.erp-warn{background:#fef6e7;border:1px solid #e8c87a;border-radius:4px;padding:.4rem .6rem;color:#7a5b12}
+.erp-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin:.4rem 0}
+.erp-hint{color:#6b7683;font-size:.7rem}
+.erp-due{color:#a93226}
+.erp-paid{color:#1e7e34}
+.erp-late{color:#a93226;font-style:normal;font-weight:700}
+.erp-bar{display:block;height:5px;background:#e3e8ed;border-radius:3px;margin-top:.25rem;overflow:hidden}
+.erp-bar span{display:block;height:100%;background:#1e7e34}
+.erp-log{list-style:none;margin:0;padding:0;font-family:monospace;font-size:.68rem;display:flex;flex-direction:column;gap:.2rem}
+.erp-log li{background:#fff;border:1px solid #e7ebef;border-radius:3px;padding:.2rem .45rem;color:#3d4a58}
+.erp-work{background:#eef5ff;border:1px solid #4da3ff;border-radius:4px;padding:.5rem .6rem;margin-bottom:.5rem;display:flex;flex-direction:column;gap:.3rem}
+.erp-bar.work span{background:#0a246a;transition:width 1s linear}
+.erp-item.crit{border-color:#c0392b;background:#fdf0ef}
+.erp-pill{font-style:normal;font-size:.62rem;font-weight:700;border-radius:3px;padding:.1rem .35rem;margin-left:.3rem;white-space:nowrap}
+.erp-pill.crit{background:#c0392b;color:#fff}
+.erp-pill.soon{background:#e7f4e4;color:#1e6b1e;border:1px solid #9cc79a}
+/* chat com cliente no mundo (sem precisar abrir PC) */
+.botchat{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);z-index:6;width:min(480px,92vw);background:#0b171df2;border:1px solid #4da3ff;color:#e6eecb;border-radius:6px;padding:.6rem .8rem;font-family:Tahoma,Arial,sans-serif}
+.botchat-say{margin:0 0 .15rem;font-size:.85rem}
+.botchat-sub{display:block;color:#9fb3ac;font-size:.72rem;margin-bottom:.5rem}
+.botchat-opts{display:flex;gap:.4rem;flex-wrap:wrap}
+.botchat-opts button{border:1px solid #4da3ff;background:#12325e;color:#fff;border-radius:3px;padding:.35rem .7rem;font-size:.78rem}
+.botchat-opts button:hover{background:#1b4a8a}
+.botchat-key{font-family:monospace;background:#4da3ff;color:#0b171d;border-radius:3px;padding:0 5px;margin-right:2px;font-size:.72rem}
+.botchat-talk{display:flex;gap:.4rem;margin-top:.5rem}
+.botchat-talk input{flex:1;background:#12222e;border:1px solid #4da3ff;color:#e6eecb;border-radius:3px;padding:.35rem .6rem;font-size:.78rem;font-family:inherit}
+.botchat-talk button{border:1px solid #4da3ff;background:#12325e;color:#fff;border-radius:3px;padding:.35rem .7rem}
+/* celular + toast de notificações */
+.hud-phone{position:fixed;top:196px;left:16px;z-index:30;font-size:20px;background:#0a0f12cc;border:1px solid #7fd6c240;border-radius:6px;padding:.3rem .5rem}
+.hud-phone em{font-style:normal;font-size:.65rem;background:#c0392b;color:#fff;border-radius:8px;padding:0 5px;margin-left:4px;vertical-align:super}
+.phone{position:fixed;right:16px;top:160px;z-index:40;width:min(320px,86vw);max-height:50vh;overflow:auto;background:#0b171df5;border:1px solid #4da3ff;border-radius:8px;color:#e6eecb;font-family:Tahoma,Arial,sans-serif;font-size:.8rem;padding:.6rem .7rem}
+.phone-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem}
+.phone-head button{background:none;border:1px solid #4da3ff;color:#fff;border-radius:3px;padding:.1rem .45rem}
+.phone ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.3rem}
+.phone li{background:#12222e;border-radius:4px;padding:.3rem .5rem}
+.phone li small{color:#8fa3b8;font-family:monospace}
+.phone-empty{color:#8fa3b8}
+.phone-toast{position:absolute;left:50%;top:110px;transform:translateX(-50%);z-index:45;background:#0b171dee;border:1px solid #ffd166;color:#ffe9c8;font:11px Tahoma,Arial,sans-serif;padding:.5rem .9rem;border-radius:4px;max-width:92vw;text-align:center}

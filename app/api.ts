@@ -1,5 +1,10 @@
-const HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const BASE = `http://${HOST}:3001`;
+// ponytail: em produção o front e o back têm domínios distintos (EasyPanel) —
+// defina VITE_API_URL=https://api.seu-dominio.com no build; em dev cai no :3001 local.
+const BASE =
+  import.meta.env.VITE_API_URL ??
+  (typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:3001`
+    : 'http://localhost:3001');
 const TOKEN_KEY = 'meridian_token';
 const USER_KEY = 'meridian_user';
 
@@ -25,6 +30,14 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 export const api = {
   token: () => localStorage.getItem(TOKEN_KEY),
   username: () => localStorage.getItem(USER_KEY),
+  async health(): Promise<boolean> {
+    try {
+      const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(3000) });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
   logout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

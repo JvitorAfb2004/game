@@ -1,13 +1,14 @@
 'use client';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 
-export type XpApp = 'notepad' | 'calc' | 'plaque';
+export type XpApp = 'notepad' | 'calc' | 'plaque' | 'company';
 export type Win = {
   id: string;
   app: XpApp;
   x: number;
   y: number;
   minimized: boolean;
+  maximized?: boolean;
   z: number;
   arg?: string;
 };
@@ -75,6 +76,7 @@ export const XP_TITLES: Record<XpApp, string> = {
   notepad: 'Bloco de notas',
   calc: 'Calculadora',
   plaque: 'Placa da sala',
+  company: 'Empresa',
 };
 
 let seq = 0;
@@ -94,6 +96,7 @@ export function useWindows() {
           x: 72 + offset,
           y: 56 + offset,
           minimized: false,
+          maximized: false,
           z: ++zRef.current,
         },
       ];
@@ -107,6 +110,15 @@ export function useWindows() {
     (id: string) =>
       setWindows((ws) =>
         ws.map((w) => (w.id === id ? { ...w, minimized: true } : w)),
+      ),
+    [],
+  );
+  const toggleMax = useCallback(
+    (id: string) =>
+      setWindows((ws) =>
+        ws.map((w) =>
+          w.id === id ? { ...w, minimized: false, maximized: !w.maximized, z: ++zRef.current } : w,
+        ),
       ),
     [],
   );
@@ -128,7 +140,7 @@ export function useWindows() {
     setWindows(list);
     zRef.current = Math.max(1, ...list.map((w) => w.z));
   }, []);
-  return { windows, open, close, minimize, focus, move, hydrate };
+  return { windows, open, close, minimize, toggleMax, focus, move, hydrate };
 }
 
 export function XPWindow({
@@ -137,6 +149,7 @@ export function XPWindow({
   onFocus,
   onClose,
   onMinimize,
+  onToggleMax,
   onMove,
   children,
 }: {
@@ -145,6 +158,7 @@ export function XPWindow({
   onFocus: (id: string) => void;
   onClose: (id: string) => void;
   onMinimize: (id: string) => void;
+  onToggleMax: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
   children: ReactNode;
 }) {
@@ -152,14 +166,15 @@ export function XPWindow({
   if (win.minimized) return null;
   return (
     <section
-      className="xp-window"
-      style={{ left: win.x, top: win.y, zIndex: win.z }}
+      className={win.maximized ? 'xp-window max' : 'xp-window'}
+      style={win.maximized ? { zIndex: win.z } : { left: win.x, top: win.y, zIndex: win.z }}
       onPointerDown={() => onFocus(win.id)}
     >
       <div
         className="xp-titlebar"
         onPointerDown={(e) => {
           if ((e.target as HTMLElement).closest('button')) return;
+          if (win.maximized) return;
           onFocus(win.id);
           drag.current = { dx: e.clientX - win.x, dy: e.clientY - win.y };
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -184,6 +199,13 @@ export function XPWindow({
             onClick={() => onMinimize(win.id)}
           >
             _
+          </button>
+          <button
+            type="button"
+            aria-label={win.maximized ? 'Restaurar' : 'Maximizar'}
+            onClick={() => onToggleMax(win.id)}
+          >
+            {win.maximized ? '❐' : '🗖'}
           </button>
           <button type="button" aria-label="Fechar" onClick={() => onClose(win.id)}>
             ✕

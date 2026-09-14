@@ -42,6 +42,9 @@ export class GameRoom {
     p.using = roomId;
     return true;
   }
+  usingRoom(id: string): string | null {
+    return this.players.get(id)?.using ?? null;
+  }
   setLight(roomId: string, on: boolean) {
     this.lights.set(roomId, on);
   }
@@ -69,8 +72,12 @@ export class GameRoom {
       }
   }
   async loadPlaques() {
-    const rows = await db.select().from(roomState);
-    for (const r of rows) this.plaques.set(r.roomId, r.plaqueText);
+    try {
+      const rows = await db.select().from(roomState);
+      for (const r of rows) this.plaques.set(r.roomId, r.plaqueText);
+    } catch (e) {
+      console.error('[room] falha ao carregar placas (banco fora?):', e);
+    }
   }
   async loadSpawn(userId: string): Promise<{ x: number; z: number; yaw: number }> {
     const [pos] = await db

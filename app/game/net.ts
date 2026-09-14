@@ -7,16 +7,97 @@ export type NetPlayer = {
   y?: number;
   using?: string | null;
 };
+export type ChatOpt = { id: string; label: string };
+export type CompanyBot = {
+  id: string;
+  ticket: number;
+  name: string;
+  want: string;
+  kind: 'dev' | 'off';
+  hard: boolean;
+  lines: number;
+  value: number;
+  deadlineDays: number;
+  state: string;
+  stage: string;
+  counter: number;
+  projectId: string | null;
+  chat?: { say: string; sub: string; opts: ChatOpt[] };
+};
+export type CompanyProject = {
+  id: string;
+  client: string;
+  title: string;
+  value: number;
+  received: number;
+  linesTotal: number;
+  linesDone: number;
+  dueAbs: number;
+  status: string;
+  workers: string[];
+  devs: string[];
+};
+export type CompanyCandidate = { id: string; name: string; level: string; salary: number; lph: number; role: string };
+export type CompanyHired = CompanyCandidate & {
+  projectId: string | null;
+  post: number | null;
+  lastPaidMonth: number;
+  hasPC: boolean;
+  atWork: boolean;
+  calledBy: string | null;
+  waitingRH: 'raise' | 'resign' | null;
+  workState: 'working' | 'lunch' | 'off';
+  stationX: number;
+  stationZ: number;
+  stationRy: number;
+};
+export type CompanyMachine = { id: string; where: string; broken: boolean; useHours: number; from: string | null; tier: string; tech: boolean; label: string };
+export type CompanyTech = { id: string; name: string; where: string; state: 'toMachine' | 'fixing' | 'collecting' };
+export type CompanyRaise = { id: string; freelancerId: string; name: string; type: string; toLevel?: string; newSalary?: number; total?: number };
+export type CompanyNotif = { id: string; text: string; when: string };
+export type CompanyState = {
+  day: number;
+  month: number;
+  absDay: number;
+  clock: string;
+  balance: number;
+  serving: number | null;
+  queue: CompanyBot[];
+  attending: CompanyBot | null;
+  bills: { id: string; name: string; amount: number; dueDay: number; paidMonth: number; lateFee: number }[];
+  projects: CompanyProject[];
+  candidates: CompanyCandidate[];
+  hired: CompanyHired[];
+  debts: { id: string; who: string; amount: number }[];
+  requests: CompanyRaise[];
+  notifs: CompanyNotif[];
+  paused: boolean;
+  dollyOwned: boolean;
+  rhRoom: string | null;
+  stations: ('ok' | 'broken' | 'empty')[];
+  machines: CompanyMachine[];
+  techs: CompanyTech[];
+  roomsPC: Record<string, boolean>;
+  deliveries: { id: string; tier: string; etaMin: number }[];
+  packages: { id: string; tier: string; claimer: string | null; x: number | null; z: number | null }[];
+  log: string[];
+};
 export type Welcome = {
   id: string;
   spawn: { x: number; z: number; yaw: number };
   players: NetPlayer[];
   plaques: Record<string, string>;
   lights: Record<string, boolean>;
+  company?: CompanyState;
 };
 
-const HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const WS_URL = `ws://${HOST}:3001/ws`;
+// ponytail: VITE_WS_URL=wss://api.seu-dominio.com/ws no build de produção;
+// em dev usa ws:// no hostname local (wss:// se a página for https).
+const WS_URL =
+  import.meta.env.VITE_WS_URL ??
+  (typeof window !== 'undefined'
+    ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:3001/ws`
+    : 'ws://localhost:3001/ws');
 
 export class Net {
   ws: WebSocket | null = null;
@@ -29,6 +110,8 @@ export class Net {
   onStatus: (online: boolean) => void = () => {};
   onUsing: (roomId: string | null, ok: boolean) => void = () => {};
   onFiles: (computer: string) => void = () => {};
+  onCompany: (c: CompanyState) => void = () => {};
+  onCompanyError: (error: string) => void = () => {};
 
   connect(token: string) {
     try {
@@ -48,6 +131,8 @@ export class Net {
         else if (msg.type === 'using')
           this.onUsing(msg.roomId as string | null, msg.ok as boolean);
         else if (msg.type === 'files') this.onFiles(msg.computer as string);
+        else if (msg.type === 'company') this.onCompany(msg.company as CompanyState);
+        else if (msg.type === 'companyError' && msg.error) this.onCompanyError(msg.error as string);
       };
       ws.onclose = () => {
         this.online = false;
@@ -75,6 +160,84 @@ export class Net {
   }
   plaque(roomId: string, text: string) {
     this.send('plaque', { roomId, text });
+  }
+  callNext() {
+    this.send('callNext', {});
+  }
+  attend(botId: string) {
+    this.send('attend', { botId });
+  }
+  answer(botId: string, accept: boolean) {
+    this.send('answer', { botId, accept });
+  }
+  hold(botId: string) {
+    this.send('hold', { botId });
+  }
+  talk(botId: string, text: string) {
+    this.send('talk', { botId, text });
+  }
+  payBill(billId: string) {
+    this.send('payBill', { billId });
+  }
+  deliver(projectId: string) {
+    this.send('deliver', { projectId });
+  }
+  hire(candidateId: string) {
+    this.send('hire', { candidateId });
+  }
+  assign(freelancerId: string, projectId: string | null) {
+    this.send('assign', { freelancerId, projectId });
+  }
+  paySalary(freelancerId: string) {
+    this.send('paySalary', { freelancerId });
+  }
+  payDebt(debtId: string) {
+    this.send('payDebt', { debtId });
+  }
+  work(projectId: string | null, user?: string) {
+    this.send('work', { projectId, user });
+  }
+  raise(requestId: string, accept: boolean) {
+    this.send('raise', { requestId, accept });
+  }
+  pause(paused: boolean) {
+    this.send('pause', { paused });
+  }
+  fire(freelancerId: string) {
+    this.send('fire', { freelancerId });
+  }
+  post(freelancerId: string, index: number | null) {
+    this.send('post', { freelancerId, index });
+  }
+  buyNotebook(tier: string = 'basico') {
+    this.send('buyNotebook', { tier });
+  }
+  buyDolly() {
+    this.send('buyDolly', {});
+  }
+  setRhRoom(roomId: string) {
+    this.send('setRhRoom', { roomId });
+  }
+  claimBox(boxId: string) {
+    this.send('claimBox', { boxId });
+  }
+  dropBox(boxId: string, x: number, z: number) {
+    this.send('dropBox', { boxId, x, z });
+  }
+  placeBox(boxId: string, station: number | null, room: string | null) {
+    this.send('placeBox', { boxId, station, room });
+  }
+  uninstallMachine(machineId: string) {
+    this.send('uninstallMachine', { machineId });
+  }
+  repairMachine(machineId: string) {
+    this.send('repairMachine', { machineId });
+  }
+  callEmployee(freelancerId: string) {
+    this.send('callEmployee', { freelancerId });
+  }
+  releaseEmployee(freelancerId: string) {
+    this.send('releaseEmployee', { freelancerId });
   }
   close() {
     this.fails = 999;

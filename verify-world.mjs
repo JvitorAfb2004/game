@@ -6,9 +6,9 @@ const scene = new THREE.Scene();
 const env = createEnvironment(THREE, scene);
 
 assert.equal(env.spawnPoints.length, 6, 'six desk points');
-assert.equal(env.doors.length, 7, 'six room doors + spawn door');
+assert.equal(env.doors.length, 9, 'six room doors + spawn door + reception door + copa door');
 assert.equal(env.rooms.length, 6, 'six switchable rooms');
-assert.equal(env.plaques.length, 6, 'six led plaques');
+assert.equal(env.plaques.length, 7, 'six led plaques + copa');
 assert.deepEqual(
   env.rooms.map((r) => r.roomId),
   ['W1', 'W2', 'W3', 'E1', 'E2', 'E3'],
@@ -29,11 +29,21 @@ const blocked = (x, z, r = 0.32) =>
 for (let z = 12; z > -22; z -= 0.5)
   assert(!blocked(0, z), `corridor clear at z=${z}`);
 
-// spawn room: clear center, closed sides and back
+// spawn room: clear center, closed sides and back (sala larga: paredes em ±4)
 assert(!blocked(0, 16.5), 'spawn room center clear');
-assert(blocked(2, 16.5), 'spawn room east wall');
-assert(blocked(-2, 16.5), 'spawn room west wall');
+assert(!blocked(2, 16.5), 'spawn room wide interior clear');
+assert(blocked(4, 16.5), 'spawn room east wall');
+assert(blocked(-4, 16.5), 'spawn room west wall');
 assert(blocked(0, 18.4), 'spawn room north wall');
+
+// copa: fechada, porta oeste passável, mesa sólida, 24 cadeiras
+assert(!blocked(5.5, 15.5), 'copa door passable');
+assert(blocked(6, 14), 'copa west wall');
+assert(blocked(16, 16), 'copa east wall');
+assert(blocked(11, 18.4), 'copa north wall');
+assert(blocked(8.5, 15), 'copa table solid');
+assert(!blocked(11, 16), 'copa center clear');
+assert.equal(env.copaChairs.length, 24, 'twenty-four chairs');
 
 for (const p of env.spawnPoints) {
   const side = Math.sign(p.x);
@@ -44,7 +54,7 @@ for (const p of env.spawnPoints) {
 env.update(0.016, 1);
 const instanced = scene.children.filter((o) => o.isInstancedMesh);
 assert(instanced.length >= 4, 'static geometry is batched into instanced meshes');
-assert.equal(env.notebooks.length, 6, 'six notebooks');
+assert.equal(env.notebooks.length, 9, 'nine notebooks (6 rooms + 3 reception)');
 for (const n of env.notebooks)
   assert(n.y > 0.8 && n.y < 1.2, 'notebook screen at desk height');
 for (const p of env.spawnPoints) {
