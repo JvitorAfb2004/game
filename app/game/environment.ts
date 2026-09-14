@@ -741,6 +741,197 @@ export function createEnvironment(
     scene.add(mesh);
   }
 
+  // --- Kit office 3D — loadOfficeKit (GLTF+DRACO, fallback caixa, colisores) ---
+  // ponytail: colisores já aqui para física funcionar mesmo se GLB 404
+  const officeEntries: {
+    side: number;
+    center: number;
+    deskX: number;
+    chairX: number;
+    shelfX: number;
+    shelfZ: number;
+    plantX: number;
+    plantZ: number;
+  }[] = [];
+  for (const side of [-1, 1] as const) {
+    for (let ri = 0; ri < roomCenters.length; ri++) {
+      const center = roomCenters[ri];
+      const isDevRoom = side === 1 && ri === 0;
+      if (isDevRoom) continue; // sala dev já tem 2 mesas longas próprias
+      const farAbs = xFar; // 7m (halfCorridor+roomDepth)
+      const deskX = side * (farAbs - 1.2); // farWall-1.2
+      const chairX = deskX - side * 0.9; // cadeira +0.9 em frente ao tampo
+      const shelfX = side * (halfCorridor + roomDepth * 0.32);
+      const shelfZ = center + roomWidth / 2 - 0.75; // lateral
+      const plantX = side * (farAbs - 0.5);
+      const plantZ = center - roomWidth / 2 + 0.6; // canto
+      officeEntries.push({ side, center, deskX, chairX, shelfX, shelfZ, plantX, plantZ });
+      collider(deskX, center, 1.4, 0.9, 0.8);
+      collider(chairX, center, 0.5, 0.5, 0.9);
+      collider(shelfX, shelfZ, 1.2, 0.35, 1.8);
+      collider(plantX, plantZ, 0.45, 0.45, 1.0);
+    }
+  }
+
+  const loadOfficeKit = async () => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    let deskGltf: any = null;
+    let chairGltf: any = null;
+    let shelfGltf: any = null;
+    let plantGltf: any = null;
+    try {
+      const [{ GLTFLoader }, { DRACOLoader }] = await Promise.all([
+        import('three/addons/loaders/GLTFLoader.js'),
+        import('three/addons/loaders/DRACOLoader.js'),
+      ]);
+      const draco = new (DRACOLoader as any)();
+      draco.setDecoderPath('/draco/');
+      const gltfLoader = new (GLTFLoader as any)();
+      gltfLoader.setDRACOLoader(draco);
+      const load = (url: string) =>
+        gltfLoader.loadAsync(url).catch(() => null);
+      [deskGltf, chairGltf, shelfGltf, plantGltf] = await Promise.all([
+        load('/models/office/desk_L.glb'),
+        load('/models/office/chair.glb'),
+        load('/models/office/shelf.glb'),
+        load('/models/office/plant.glb'),
+      ]);
+    } catch {
+      // rede falhou — fallback caixa abaixo cobre
+    }
+
+    const applyShadows = (root: ThreeType.Object3D) => {
+      root.traverse((o: any) => {
+        if (o.isMesh) {
+          o.castShadow = true;
+          o.receiveShadow = true;
+        }
+      });
+    };
+
+    // Mesas e estantes — Mesh/Group clonado por sala (escala real ~1:1)
+    for (const e of officeEntries) {
+      // desk
+      if (deskGltf?.scene) {
+        const g = deskGltf.scene.clone(true) as ThreeType.Group;
+        applyShadows(g);
+        // GLB placeholder: 1.4x0.08x0.9 centrado; reposiciona topo 0.72
+        g.position.set(e.deskX, 0.72, e.center);
+        // Kenney kit original já vem orientado; mantem yaw lateral
+        g.rotation.y = e.side === 1 ? Math.PI : 0;
+        scene.add(g);
+      } else {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.9), woodMat);
+        m.position.set(e.deskX, 0.72, e.center);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        scene.add(m);
+      }
+      // shelf — encostada na parede lateral
+      if (shelfGltf?.scene) {
+        const g = shelfGltf.scene.clone(true) as ThreeType.Group;
+        applyShadows(g);
+        g.position.set(e.shelfX, 0.9, e.shelfZ);
+        g.rotation.y = e.side === 1 ? Math.PI / 2 : -Math.PI / 2;
+        scene.add(g);
+      } else {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.6, 0.35), woodMat);
+        m.position.set(e.shelfX, 0.9, e.shelfZ);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        scene.add(m);
+      }
+    }
+
+    // Cadeiras — InstancedMesh (1 draw call)
+    if (officeEntries.length) {
+      const chairPos = officeEntries.map((e) => ({
+        x: e.chairX,
+        z: e.center,
+        ry: e.side === 1 ? Math.PI : 0,
+      }));
+      let chairGeo: ThreeType.BufferGeometry | null = null;
+      let chairMat: ThreeType.Material | null = null;
+      if (chairGltf?.scene) {
+        chairGltf.scene.traverse((o: any) => {
+          if (o.isMesh && !chairGeo) {
+            chairGeo = o.geometry as ThreeType.BufferGeometry;
+            chairMat = o.material as ThreeType.Material;
+          }
+        });
+      }
+      if (chairGeo && chairMat) {
+        const im = new THREE.InstancedMesh(chairGeo, chairMat, chairPos.length);
+        chairPos.forEach((p, i) => {
+          scratch.position.set(p.x, 0.25, p.z);
+          scratch.rotation.set(0, p.ry, 0);
+          scratch.scale.set(1, 1, 1);
+          scratch.updateMatrix();
+          im.setMatrixAt(i, scratch.matrix);
+        });
+        im.castShadow = true;
+        im.receiveShadow = true;
+        im.computeBoundingSphere();
+        scene.add(im);
+      } else {
+        const im = new THREE.InstancedMesh(unitBox, woodEdgeMat, chairPos.length);
+        chairPos.forEach((p, i) => {
+          scratch.position.set(p.x, 0.25, p.z);
+          scratch.rotation.set(0, p.ry, 0);
+          scratch.scale.set(0.5, 0.5, 0.5);
+          scratch.updateMatrix();
+          im.setMatrixAt(i, scratch.matrix);
+        });
+        im.castShadow = true;
+        im.receiveShadow = true;
+        im.computeBoundingSphere();
+        scene.add(im);
+      }
+
+      // Plantas — InstancedMesh canto
+      const plantPos = officeEntries.map((e) => ({ x: e.plantX, z: e.plantZ }));
+      let plantGeo: ThreeType.BufferGeometry | null = null;
+      let plantMat: ThreeType.Material | null = null;
+      if (plantGltf?.scene) {
+        plantGltf.scene.traverse((o: any) => {
+          if (o.isMesh && !plantGeo) {
+            plantGeo = o.geometry as ThreeType.BufferGeometry;
+            plantMat = o.material as ThreeType.Material;
+          }
+        });
+      }
+      const plantFallbackMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.9 });
+      if (plantGeo && plantMat) {
+        const im = new THREE.InstancedMesh(plantGeo, plantMat, plantPos.length);
+        plantPos.forEach((p, i) => {
+          scratch.position.set(p.x, 0.45, p.z);
+          scratch.rotation.set(0, 0, 0);
+          scratch.scale.set(1, 1, 1);
+          scratch.updateMatrix();
+          im.setMatrixAt(i, scratch.matrix);
+        });
+        im.castShadow = true;
+        im.receiveShadow = true;
+        im.computeBoundingSphere();
+        scene.add(im);
+      } else {
+        const im = new THREE.InstancedMesh(unitBox, plantFallbackMat, plantPos.length);
+        plantPos.forEach((p, i) => {
+          scratch.position.set(p.x, 0.45, p.z);
+          scratch.rotation.set(0, 0, 0);
+          scratch.scale.set(0.45, 0.9, 0.45);
+          scratch.updateMatrix();
+          im.setMatrixAt(i, scratch.matrix);
+        });
+        im.castShadow = true;
+        im.receiveShadow = true;
+        im.computeBoundingSphere();
+        scene.add(im);
+      }
+    }
+  };
+  loadOfficeKit().catch(() => {});
+
   scene.background = new THREE.Color(0x1b2126);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 0.32));
   scene.add(new THREE.AmbientLight(0xffffff, 0.12));
