@@ -981,6 +981,15 @@ export class Game {
     if (this.dolly) this.dolly.visible = owned;
     if (!owned && this.dollyGrabbed) this.dollyGrabbed = false;
   }
+  // ponytail: carrinho persiste por sala — servidor guarda x/z ao soltar, cliente restaura ao entrar
+  onDollyPos: ((x: number, z: number) => void) | null = null;
+  setDollyPos(x: number, z: number) {
+    if (!this.dolly || this.dollyGrabbed) return;
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+    this.dolly.position.set(
+      Math.min(23, Math.max(-23, x)), 0, Math.min(18, Math.max(-41, z)),
+    );
+  }
   grabDolly() {
     if (!this.dolly?.visible) return;
     this.dollyGrabbed = true;
@@ -988,6 +997,7 @@ export class Game {
   }
   releaseDolly() {
     this.dollyGrabbed = false;
+    if (this.dolly) this.onDollyPos?.(this.dolly.position.x, this.dolly.position.z);
     this.sound.noise(0.05, 0.1, 900);
   }
   pressE() {

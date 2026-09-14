@@ -40,5 +40,29 @@ export async function migrate() {
       state jsonb NOT NULL DEFAULT '{}',
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS rooms (
+      code text PRIMARY KEY,
+      name text NOT NULL DEFAULT 'Sala',
+      owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status text NOT NULL DEFAULT 'active',
+      snapshot jsonb NOT NULL DEFAULT '{}',
+      tick_v real NOT NULL DEFAULT 0,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS room_members (
+      room_code text NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,
+      user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role text NOT NULL DEFAULT 'member',
+      last_seen timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (room_code, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS room_history (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      room_code text NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,
+      user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      joined_at timestamptz NOT NULL DEFAULT now(),
+      left_at timestamptz
+    );
   `);
 }

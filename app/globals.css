@@ -38,6 +38,12 @@
 .char-card{display:flex;align-items:center;gap:.45rem;padding:.4rem .5rem;background:#10171b;border:1px solid #2b3a40;border-radius:4px;color:#e8ece9;font-size:.8rem}
 .char-card.selected{border-color:#7fd6c2;box-shadow:0 0 0 1px #7fd6c2}
 .char-swatch{width:1rem;height:1rem;border-radius:50%;flex:none;border:1px solid #0008}
+.lobby-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.4rem;width:min(340px,84vw)}
+.lobby-room{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .5rem;width:100%;text-align:left;padding:.5rem .7rem;background:#10171b;border:1px solid #2b3a40;border-radius:4px;color:#e8ece9}
+.lobby-room code{font-family:monospace;color:#7fd6c2}
+.lobby-room small{width:100%;color:#9fb3ac;font-size:.72rem}
+.lobby-create{display:flex;gap:.4rem;width:min(340px,84vw)}
+.lobby-create input{flex:1;padding:.6rem .7rem;background:#10171b;border:1px solid #2b3a40;color:#e8ece9;border-radius:4px;font:inherit;min-width:0}
 .link-button{background:none;border:0;color:#7fd6c2;font-size:.8rem;cursor:pointer}
 .hud-players{position:fixed;top:84px;left:16px;z-index:30;color:#dfe6e2;font-size:.72rem;letter-spacing:.08em;background:#0a0f1288;padding:.5rem .7rem;border-radius:4px;border:1px solid #7fd6c240}
 .hud-players ul{list-style:none;margin:.4rem 0 0;padding:0}

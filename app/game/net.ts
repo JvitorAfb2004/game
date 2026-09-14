@@ -74,6 +74,7 @@ export type CompanyState = {
   notifs: CompanyNotif[];
   paused: boolean;
   dollyOwned: boolean;
+  dollyPos: { x: number; z: number } | null;
   rhRoom: string | null;
   stations: ('ok' | 'broken' | 'empty')[];
   machines: CompanyMachine[];
@@ -85,6 +86,8 @@ export type CompanyState = {
 };
 export type Welcome = {
   id: string;
+  roomCode?: string;
+  roomName?: string;
   spawn: { x: number; z: number; yaw: number };
   players: NetPlayer[];
   plaques: Record<string, string>;
@@ -104,6 +107,8 @@ export class Net {
   ws: WebSocket | null = null;
   online = false;
   fails = 0;
+  roomCode: string | null = null;
+  private lastToken = '';
   onPlayers: (p: NetPlayer[]) => void = () => {};
   onLight: (roomId: string, on: boolean) => void = () => {};
   onPlaque: (roomId: string, text: string) => void = () => {};
@@ -114,9 +119,12 @@ export class Net {
   onCompany: (c: CompanyState) => void = () => {};
   onCompanyError: (error: string) => void = () => {};
 
-  connect(token: string) {
+  connect(token: string, roomCode?: string) {
     try {
-      const ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(token)}`);
+      this.lastToken = token;
+      if (roomCode !== undefined) this.roomCode = roomCode;
+      const room = this.roomCode ? `&room=${encodeURIComponent(this.roomCode)}` : '';
+      const ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(token)}${room}`);
       this.ws = ws;
       ws.onopen = () => {
         this.fails = 0;
@@ -138,7 +146,7 @@ export class Net {
       ws.onclose = () => {
         this.online = false;
         this.onStatus(false);
-        if (this.fails++ < 3) setTimeout(() => this.connect(token), 800 * this.fails);
+        if (this.fails++ < 3) setTimeout(() => this.connect(this.lastToken), 800 * this.fails);
       };
       ws.onerror = () => ws.close();
     } catch {
@@ -215,6 +223,9 @@ export class Net {
   }
   buyDolly() {
     this.send('buyDolly', {});
+  }
+  dollyPos(x: number, z: number) {
+    this.send('dollyPos', { x, z });
   }
   setRhRoom(roomId: string) {
     this.send('setRhRoom', { roomId });

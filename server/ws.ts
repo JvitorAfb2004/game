@@ -4,17 +4,13 @@ import { db } from './db/client.ts';
 import { roomState, users } from './db/schema.ts';
 import { verifyToken } from './auth/tokens.ts';
 import { clientMsg } from './game/protocol.ts';
-import { GameRoom } from './game/room.ts';
-import { company } from './game/company.ts';
-
-const room = new GameRoom();
-export { room };
+import { manager } from './game/rooms.ts';
 
 export async function registerWs(app: FastifyInstance) {
-  await room.loadPlaques();
   app.get('/ws', { websocket: true }, (socket, req) => {
     const url = new URL(req.url ?? '/ws', 'http://localhost');
     const token = url.searchParams.get('token') ?? '';
+    const roomCode = (url.searchParams.get('room') ?? 'GERAL').toUpperCase().slice(0, 12) || 'GERAL';
     let userId = '';
     let username = '';
     try {
@@ -34,6 +30,9 @@ export async function registerWs(app: FastifyInstance) {
         socket.close();
         return;
       }
+      const joined = await manager.joinRoom(roomCode, userId).catch(() => null);
+      const ctx = await manager.ensureRoom(joined?.code ?? roomCode, userId, joined?.name);
+      const { room, company } = ctx;
       const spawn = await room.loadSpawn(userId);
       const conn = { send: (d: string) => socket.send(d) };
       room.addPlayer({ id: userId, username, character: user.character ?? 'azul', ...spawn }, conn);
@@ -41,6 +40,8 @@ export async function registerWs(app: FastifyInstance) {
         JSON.stringify({
           type: 'welcome',
           id: userId,
+          roomCode: ctx.code,
+          roomName: ctx.name,
           spawn,
           players: room.snapshotPlayers(),
           plaques: Object.fromEntries(room.plaques),
@@ -78,10 +79,10 @@ export async function registerWs(app: FastifyInstance) {
           room.broadcast({ type: 'players', players: room.snapshotPlayers() });
         } else if (m.type === 'light') {
           room.setLight(m.roomId, m.on);
-          room.broadcast({ type: 'light', roomId: m.roomId, on: m.on });
+          manager.broadcastAll({ type: 'light', roomId: m.roomId, on: m.on });
         } else if (m.type === 'plaque') {
           room.setPlaque(m.roomId, m.text);
-          room.broadcast({ type: 'plaque', roomId: m.roomId, text: m.text });
+          manager.broadcastAll({ type: 'plaque', roomId: m.roomId, text: m.text });
           try {
             await db
               .insert(roomState)
@@ -181,6 +182,10 @@ export async function registerWs(app: FastifyInstance) {
           const res = company.buyDolly();
           if (res !== 'ok') cerr(res);
           syncCompany();
+        } else if (m.type === 'dollyPos') {
+          const res = company.setDollyPos(m.x, m.z);
+          if (res !== 'ok') cerr(res);
+          syncCompany();
         } else if (m.type === 'setRhRoom') {
           const res = company.setRhRoom(m.roomId);
           if (res !== 'ok') cerr(res);
@@ -221,6 +226,7 @@ export async function registerWs(app: FastifyInstance) {
         company.dropPlayer(userId);
         room.leave(userId);
         room.broadcast({ type: 'players', players: room.snapshotPlayers() });
+        void manager.leaveRoom(ctx.code, userId);
       });
     })();
   });

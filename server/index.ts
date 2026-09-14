@@ -5,7 +5,8 @@ import { env } from './env.ts';
 import { migrate } from './db/client.ts';
 import { registerAuthRoutes } from './auth/routes.ts';
 import { registerFileRoutes } from './game/files.ts';
-import { registerWs, room } from './ws.ts';
+import { registerRoomRoutes, manager } from './game/rooms.ts';
+import { registerWs } from './ws.ts';
 
 const app = Fastify({ logger: true });
 // ponytail: em produção restrinja via FRONTEND_URL (vírgulas); vazio = reflete a origem (dev).
@@ -19,23 +20,13 @@ app.get('/health', async () => ({ ok: true }));
 
 await app.register(registerAuthRoutes);
 await app.register(registerFileRoutes);
+await app.register(registerRoomRoutes);
 await app.register(websocket);
 await migrate();
 await app.register(registerWs);
-setInterval(() => void room.saveAll(), 2000);
-const { company } = await import('./game/company.ts');
-company.load();
-let companyTicks = 0;
-setInterval(() => {
-  company.autoPause(1, room.players.size > 0);
-  company.tick(1);
-  companyTicks += 1;
-  if (company.changed || companyTicks % 5 === 0) {
-    company.changed = false;
-    room.broadcast({ type: 'company', company: company.snapshot() });
-  }
-}, 1000);
-setInterval(() => company.save(), 10000);
+// ponytail: 1 tick/s por sala ativa; vazia há 5min hiberna (serializa no Postgres, sai da RAM).
+setInterval(() => manager.tickAll(1), 1000);
+setInterval(() => void manager.saveAll(), 10000);
 
 await app.listen({ port: env.port, host: '0.0.0.0' });
 console.info(`[server] listening on http://0.0.0.0:${env.port}`);

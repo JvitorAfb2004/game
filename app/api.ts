@@ -52,6 +52,15 @@ export const api = {
     localStorage.setItem(USER_KEY, data.username);
     return data;
   },
+  async rooms(): Promise<{ owned: { code: string; name: string; live: boolean }[]; recent: { code: string; name: string; live: boolean }[] }> {
+    return this.authed('/rooms');
+  },
+  async createRoom(name: string): Promise<{ code: string; name: string }> {
+    return this.authed('/rooms', { method: 'POST', body: JSON.stringify({ name }) });
+  },
+  async joinRoom(code: string): Promise<{ code: string; name: string }> {
+    return this.authed(`/rooms/${encodeURIComponent(code)}/join`, { method: 'POST' });
+  },
   async authed<T>(path: string, init: RequestInit = {}): Promise<T> {
     const res = await doFetch(`${BASE}${path}`, {
       ...init,

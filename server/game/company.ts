@@ -189,7 +189,7 @@ const PERSONA_DESC: Record<Persona, string> = {
   grosso: 'Be rude, impatient and condescending.',
 };
 
-class CompanySim {
+export class CompanySim {
   minute = 8 * 60; // dia 1, 08:00
   day = 1;
   month = 1;
@@ -208,6 +208,7 @@ class CompanySim {
   pendingFines: PendingFine[] = [];
   machines: Machine[] = [];
   dollyOwned = false; // carrinho comprado na loja (aparece no spawn)
+  dollyPos: { x: number; z: number } | null = null; // última posição largada (persiste por sala)
   rhRoom: string | null = 'W2'; // sala de RH (configurável): pedidos de aumento/demissão esperam lá
   deliveries: Delivery[] = [];
   packages: Pkg[] = [];
@@ -394,6 +395,7 @@ class CompanySim {
       notifs: this.notifs,
       paused: this.paused,
       dollyOwned: this.dollyOwned,
+      dollyPos: this.dollyPos,
       rhRoom: this.rhRoom,
       stations: this.stationStates(),
       machines: this.machines.map((m) => ({
@@ -1293,6 +1295,17 @@ class CompanySim {
     this.changed = true;
     return 'ok';
   }
+  /** posição onde o jogador largou o carrinho (só guarda; visual é do cliente) */
+  setDollyPos(x: number, z: number): string {
+    if (!this.dollyOwned) return 'sem carrinho';
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return 'posição inválida';
+    this.dollyPos = {
+      x: Math.min(23, Math.max(-23, Math.round(x * 100) / 100)),
+      z: Math.min(18, Math.max(-41, Math.round(z * 100) / 100)),
+    };
+    this.changed = true;
+    return 'ok';
+  }
   /** compra notebook do tier: chega em 1 dia de jogo como caixa no spawn */
   buyNotebook(tier: PcTier = 'basico'): string {
     const t = PC_TIERS[tier] ?? PC_TIERS.basico;
@@ -1426,22 +1439,24 @@ class CompanySim {
     this.changed = true;
     return 'ok';
   }
+  /** estado serializável (arquivo e snapshot de sala usam o mesmo formato) */
+  serialize() {
+    return {
+      minute: this.minute, day: this.day, month: this.month, absDay: this.absDay,
+      balance: this.balance, monthRevenue: this.monthRevenue, ticket: this.ticket, serving: this.serving,
+      bots: this.bots, projects: this.projects, candidates: this.candidates,
+      hired: this.hired, debts: this.debts, requests: this.requests, notifs: this.notifs,
+      pendingFines: this.pendingFines, manualPause: this.manualPause, dollyOwned: this.dollyOwned,
+      dollyPos: this.dollyPos, rhRoom: this.rhRoom,
+      machines: this.machines, deliveries: this.deliveries, packages: this.packages,
+      techs: this.techs,
+      bills: this.bills, log: this.log,
+    };
+  }
   save() {
     try {
       mkdirSync(dirname(SAVE_PATH), { recursive: true });
-      writeFileSync(
-        SAVE_PATH,
-        JSON.stringify({
-          minute: this.minute, day: this.day, month: this.month, absDay: this.absDay,
-          balance: this.balance, monthRevenue: this.monthRevenue, ticket: this.ticket, serving: this.serving,
-          bots: this.bots, projects: this.projects, candidates: this.candidates,
-          hired: this.hired, debts: this.debts, requests: this.requests, notifs: this.notifs,
-          pendingFines: this.pendingFines,           manualPause: this.manualPause, dollyOwned: this.dollyOwned, rhRoom: this.rhRoom,
-          machines: this.machines, deliveries: this.deliveries, packages: this.packages,
-          techs: this.techs,
-          bills: this.bills, log: this.log,
-        }),
-      );
+      writeFileSync(SAVE_PATH, JSON.stringify(this.serialize()));
     } catch {
       /* disco indisponível: segue em memória */
     }
@@ -1449,14 +1464,26 @@ class CompanySim {
   load() {
     try {
       const raw = readFileSync(SAVE_PATH, 'utf8');
-      const s = JSON.parse(raw) as Partial<CompanySim>;
+      this.restore(JSON.parse(raw));
+      console.info('[company] estado restaurado de data/company.json');
+    } catch {
+      this.genCandidates(3);
+      this.machines.push({ id: rid('pc'), where: 'rm:W1', broken: false });
+    }
+  }
+  /** restaura de um snapshot (arquivo ou sala); zera transitórios (chamados, claims) */
+  restore(data: unknown) {
+    {
+      const s = data as Partial<CompanySim>;
       for (const k of [
         'minute', 'day', 'month', 'absDay', 'balance', 'monthRevenue', 'ticket', 'serving',
         'bots', 'projects', 'candidates', 'hired', 'debts', 'requests', 'notifs',
-        'pendingFines', 'manualPause', 'dollyOwned', 'rhRoom', 'machines', 'deliveries', 'packages', 'techs', 'bills', 'log',
+        'pendingFines', 'manualPause', 'dollyOwned', 'dollyPos', 'rhRoom', 'machines', 'deliveries', 'packages', 'techs', 'bills', 'log',
       ] as const) {
         if (s[k] !== undefined) (this as unknown as Record<string, unknown>)[k] = s[k];
       }
+      if (this.dollyPos && (!Number.isFinite(this.dollyPos.x) || !Number.isFinite(this.dollyPos.z)))
+        this.dollyPos = null;
       this.techs ??= [];
       // migração de saves antigos: preenche campos novos para nada travar
       const DEFAULT_BILLS: Bill[] = [
@@ -1539,13 +1566,11 @@ class CompanySim {
         this.machines.push({ id: rid('pc'), where: 'rm:W1', broken: false });
       this.deliveries ??= [];
       this.packages ??= [];
-      this.claims ??= {};
+      // transitórios nunca sobrevivem a reload/hibernação (ninguém online p/ segurar)
+      this.claims = {};
+      this.workBeats.clear();
       this.debts ??= [];
       this.candidates ??= [];
-      console.info('[company] estado restaurado de data/company.json');
-    } catch {
-      this.genCandidates(3);
-      this.machines.push({ id: rid('pc'), where: 'rm:W1', broken: false });
     }
   }
 }

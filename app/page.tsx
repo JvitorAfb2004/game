@@ -88,6 +88,13 @@ export default function Home() {
   const backendOn = backend === 'online';
   const connected = backendOn && netOnline;
   const [welcome, setWelcome] = useState<import('./game/net').Welcome | null>(null);
+  // ponytail: lobby de salas privadas — sem sala escolhida, sem conexão
+  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [roomsList, setRoomsList] = useState<{ owned: { code: string; name: string; live: boolean }[]; recent: { code: string; name: string; live: boolean }[] } | null>(null);
+  const [roomsError, setRoomsError] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [newRoomName, setNewRoomName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
   const [plaquesText, setPlaquesText] = useState<Record<string, string>>({});
   const { windows, open, close, minimize, toggleMax, focus, move, hydrate } = useWindows();
   const [desktopFiles, setDesktopFiles] = useState<DesktopFile[]>([]);
@@ -133,8 +140,67 @@ export default function Home() {
       engine.current = null;
     };
   }, []);
+  // lista as salas ao logar (lobby); entrar numa sala conecta o WS com ?room=
   useEffect(() => {
-    if (!session) return;
+    if (!session || roomCode) return;
+    let alive = true;
+    setRoomsError('');
+    api.rooms().then((r) => {
+      if (alive) setRoomsList(r);
+    }).catch((e) => {
+      if (alive) setRoomsError(e instanceof Error ? e.message : 'erro ao listar salas');
+    });
+    return () => {
+      alive = false;
+    };
+  }, [session, roomCode]);
+  const enterRoom = useCallback(
+    async (code: string, name?: string) => {
+      const clean = code.trim().toUpperCase();
+      if (!clean) return;
+      setRoomsError('');
+      setJoining(true);
+      try {
+        const found = name ? { code: clean, name } : await api.joinRoom(clean);
+        setWelcome(null);
+        setCompany(null);
+        setPlayers([]);
+        setRoomCode(found.code);
+      } catch (e) {
+        setRoomsError(e instanceof Error ? e.message : 'sala não encontrada');
+        setJoining(false);
+      }
+    },
+    [],
+  );
+  const createRoom = useCallback(async () => {
+    setRoomsError('');
+    setJoining(true);
+    try {
+      const r = await api.createRoom(newRoomName.trim() || 'Sala');
+      setWelcome(null);
+      setCompany(null);
+      setPlayers([]);
+      setRoomCode(r.code);
+      setNewRoomName('');
+    } catch (e) {
+      setRoomsError(e instanceof Error ? e.message : 'erro ao criar sala');
+      setJoining(false);
+    }
+  }, [newRoomName]);
+  const leaveRoom = useCallback(() => {
+    net.current?.close();
+    net.current = null;
+    setNetInst(null);
+    setWelcome(null);
+    setCompany(null);
+    setPlayers([]);
+    setRoomCode(null);
+    setJoining(false);
+    engine.current?.pause();
+  }, []);
+  useEffect(() => {
+    if (!session || !roomCode) return;
     let disposed = false;
     void import('./game/net').then(({ Net }) => {
       if (disposed) return;
@@ -147,6 +213,7 @@ export default function Home() {
         selfId.current = w.id;
         if (engine.current) engine.current.localId = w.id;
         setWelcome(w);
+        setJoining(false);
         setPlaquesText(w.plaques);
         if (w.company) {
           setCompany(w.company);
@@ -164,6 +231,7 @@ export default function Home() {
           engine.current?.setCompanyTechs(w.company.techs ?? []);
           engine.current?.setRhRoom(w.company.rhRoom ?? null);
           engine.current?.setDollyOwned(w.company.dollyOwned ?? false);
+          if (w.company.dollyPos) engine.current?.setDollyPos(w.company.dollyPos.x, w.company.dollyPos.z);
           engine.current?.setCompanyStock(w.company.stations, [], null);
         }
         applyPlayers(w.players);
@@ -192,6 +260,7 @@ export default function Home() {
         engine.current?.setCompanyTechs(c.techs ?? []);
         engine.current?.setRhRoom(c.rhRoom ?? null);
         engine.current?.setDollyOwned(c.dollyOwned ?? false);
+        if (c.dollyPos) engine.current?.setDollyPos(c.dollyPos.x, c.dollyPos.z);
         const me = session?.username ?? '';
         const myBox = c.packages.find((p) => p.claimer === me)?.id ?? null;
         engine.current?.setCompanyStock(
@@ -216,7 +285,7 @@ export default function Home() {
         }
       };
       n.onFiles = () => setFilesTick((t) => t + 1);
-      n.connect(session.token);
+      n.connect(session.token, roomCode);
       if (engine.current) {
         engine.current.onLocalMove = (x, z, yaw, y) => n.move(x, z, yaw, y);
         engine.current.onToggleLight = (roomId, on) => n.light(roomId, on);
@@ -233,6 +302,7 @@ export default function Home() {
         engine.current.onNotice = (msg) => setNotice(msg);
         engine.current.onPlaceBox = (boxId, station, room) => n.placeBox(boxId, station, room);
         engine.current.onToggleTV = (on) => n.plaque('COPA_TV', on ? 'on' : 'off');
+        engine.current.onDollyPos = (x, z) => n.dollyPos(x, z);
         engine.current.onUse = (roomId) => n.using(roomId);
       }
     });
@@ -242,7 +312,7 @@ export default function Home() {
       net.current = null;
       setNetInst(null);
     };
-  }, [session, ready, applyPlayers]);
+  }, [session, ready, roomCode, applyPlayers]);
   useEffect(() => {
     engine.current?.configure({ muted, sensitivity, graphics });
   }, [muted, sensitivity, graphics, ready]);
@@ -862,7 +932,95 @@ export default function Home() {
         </div>
       </header>
       {session && !active && <div className="menu-shade" />}
-      {session && !active && !settings && !state.desktop && (
+      {session && !roomCode && (
+        <section className="mission-menu" data-testid="lobby">
+          <div className="mission-kicker">
+            <span /> SALAS PRIVADAS
+          </div>
+          <h1>
+            ESCOLHA
+            <br />
+            <em>SUA SALA.</em>
+          </h1>
+          <p className="mission-description">
+            Cada sala tem sua empresa, seu progresso e seu código de convite.
+            Saia por 5min e a sala hiberna sozinha.
+          </p>
+          {roomsError && <p className="error-message">{roomsError}</p>}
+          {roomsList && (roomsList.owned.length > 0 || roomsList.recent.length > 0) ? (
+            <ul className="lobby-list">
+              {[...roomsList.owned.map((r) => ({ ...r, mine: true })), ...roomsList.recent.map((r) => ({ ...r, mine: false }))].map((r) => (
+                <li key={r.code}>
+                  <button type="button" className="lobby-room" onClick={() => enterRoom(r.code, r.name)} disabled={joining}>
+                    <b>{r.name}</b> <code>{r.code}</code>
+                    <small>{r.mine ? 'sua sala' : 'convidado'} · {r.live ? '🟢 ativa' : '💤 hibernada'}</small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mission-description">Nenhuma sala ainda — crie a primeira abaixo.</p>
+          )}
+          <form
+            className="lobby-create"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void createRoom();
+            }}
+          >
+            <input
+              value={newRoomName}
+              onChange={(e) => setNewRoomName(e.target.value)}
+              placeholder="Nome da sala"
+              maxLength={24}
+              aria-label="Nome da nova sala"
+            />
+            <button type="submit" className="deploy-button" disabled={joining}>
+              + CRIAR SALA
+            </button>
+          </form>
+          <form
+            className="lobby-create"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void enterRoom(joinCode);
+            }}
+          >
+            <input
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="CÓDIGO do convite"
+              maxLength={12}
+              aria-label="Código da sala"
+            />
+            <button type="submit" className="deploy-button" disabled={joining || !joinCode.trim()}>
+              ENTRAR →
+            </button>
+          </form>
+          {joining && <p className="mission-description">Conectando…</p>}
+        </section>
+      )}
+      {session && roomCode && joining && !welcome && (
+        <section className="mission-menu" data-testid="room-loading">
+          <div className="mission-kicker">
+            <span /> CARREGANDO
+          </div>
+          <h1>
+            ENTRANDO
+            <br />
+            <em>NA SALA…</em>
+          </h1>
+          <p className="mission-description">
+            {netOnline ? 'Sincronizando empresa, NPCs e posições…' : 'Conectando ao servidor…'}
+          </p>
+          <div className="xp-taskbar" aria-hidden="true">
+            <div className="xp-tasks">
+              <span className="xp-task">{netOnline ? 'carregando mundo…' : 'conectando…'}</span>
+            </div>
+          </div>
+        </section>
+      )}
+      {session && roomCode && !active && !settings && !state.desktop && welcome && (
         <section className="mission-menu">
           <div className="mission-kicker">
             <span /> {state.mode === 'paused' ? 'VISITA PAUSADA' : 'WALKTHROUGH · EXPLORAÇÃO'}
@@ -923,6 +1081,14 @@ export default function Home() {
             >
               <RotateCcw size={14} /> RECOMEÇAR
             </button>
+          )}
+          {welcome && (
+            <p className="mission-description">
+              Sala <b>{welcome.roomName ?? 'Sala'}</b> · código <code>{welcome.roomCode ?? roomCode}</code>{' '}
+              <button type="button" className="link-button" onClick={leaveRoom}>
+                trocar de sala
+              </button>
+            </p>
           )}
           {error && (
             <p className="error-message">

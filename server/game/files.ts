@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { computerFiles, computerState } from '../db/schema.ts';
 import { verifyToken } from '../auth/tokens.ts';
-import { room } from '../ws.ts';
+import { manager } from './rooms.ts';
 
 async function listFiles(computer: string) {
   return db.select().from(computerFiles).where(eq(computerFiles.computerId, computer));
@@ -12,7 +12,7 @@ async function listFiles(computer: string) {
 
 function broadcastFiles(computer: string) {
   void listFiles(computer).then((files) =>
-    room.broadcast({ type: 'files', computer, files }),
+    manager.broadcastAll({ type: 'files', computer, files }),
   );
 }
 

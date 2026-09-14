@@ -42,6 +42,7 @@ export const clientMsg = z.discriminatedUnion('type', [
   z.object({ type: z.literal('repairMachine'), machineId: z.string().max(64) }),
   z.object({ type: z.literal('callEmployee'), freelancerId: z.string().max(64) }),
   z.object({ type: z.literal('releaseEmployee'), freelancerId: z.string().max(64) }),
+  z.object({ type: z.literal('dollyPos'), x: z.number(), z: z.number() }),
 ]);
 export type ClientMsg = z.infer<typeof clientMsg>;
 
