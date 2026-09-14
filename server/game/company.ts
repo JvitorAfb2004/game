@@ -318,17 +318,16 @@ export class CompanySim {
       return { x: px, z: -27.7, ry: Math.PI };
     }
     if (role === 'manager') {
-      // gerente em posto próprio ao norte da sala de devs (fora das 12 estações, de frente p/ equipe)
-      return { x: 6.6, z: 5.9, ry: 0 };
+      // gerente entre as duas fileiras, ao norte (fora das 12 estações)
+      return { x: 8.3, z: 5.7, ry: 0 };
     }
     const devIdx = this.hired.filter((h) => h.role === 'dev').length;
+    // MESMA ordem do cliente (environment.ts devStations): mesas 6.8 e 9.8, postos ±0.9, z 7.4/9/10.6
     const stations = [
-      { x: 6.6, z: 7.6, ry: Math.PI / 2 }, { x: 8.6, z: 7.6, ry: -Math.PI / 2 },
-      { x: 6.6, z: 9.6, ry: Math.PI / 2 }, { x: 8.6, z: 9.6, ry: -Math.PI / 2 },
-      { x: 6.6, z: 11.6, ry: Math.PI / 2 }, { x: 8.6, z: 11.6, ry: -Math.PI / 2 },
-      { x: 6.6, z: 5.6, ry: Math.PI / 2 }, { x: 8.6, z: 5.6, ry: -Math.PI / 2 },
-      { x: 6.6, z: 3.6, ry: Math.PI / 2 }, { x: 8.6, z: 3.6, ry: -Math.PI / 2 },
-      { x: 6.6, z: 1.6, ry: Math.PI / 2 }, { x: 8.6, z: 1.6, ry: -Math.PI / 2 },
+      { x: 5.9, z: 7.4, ry: Math.PI / 2 }, { x: 5.9, z: 9, ry: Math.PI / 2 }, { x: 5.9, z: 10.6, ry: Math.PI / 2 },
+      { x: 7.7, z: 7.4, ry: -Math.PI / 2 }, { x: 7.7, z: 9, ry: -Math.PI / 2 }, { x: 7.7, z: 10.6, ry: -Math.PI / 2 },
+      { x: 8.9, z: 7.4, ry: Math.PI / 2 }, { x: 8.9, z: 9, ry: Math.PI / 2 }, { x: 8.9, z: 10.6, ry: Math.PI / 2 },
+      { x: 10.7, z: 7.4, ry: -Math.PI / 2 }, { x: 10.7, z: 9, ry: -Math.PI / 2 }, { x: 10.7, z: 10.6, ry: -Math.PI / 2 },
     ];
     return stations[devIdx % stations.length];
   }

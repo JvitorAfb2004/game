@@ -576,7 +576,7 @@ export class Game {
   // ponytail: distância de render (fog + camera.far) — 0.3..1, estilo GTA
   renderDistance = 1;
   setRenderDistance(pct: number) {
-    this.renderDistance = Math.min(1, Math.max(0.25, pct));
+    this.renderDistance = Math.min(1, Math.max(0.1, pct));
     const far = 60 + this.renderDistance * 160; // 100..220
     this.camera.far = far;
     this.camera.updateProjectionMatrix();
@@ -657,17 +657,22 @@ export class Game {
     if (this.tvVideo && this.tvVideo.readyState >= 2) {
       ctx.drawImage(this.tvVideo, 0, 0, 512, 288);
     } else {
-      ctx.fillStyle = '#ff0033';
-      ctx.beginPath();
-      ctx.roundRect(24, 24, 64, 44, 8);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.moveTo(44, 32); ctx.lineTo(66, 46); ctx.lineTo(44, 60); ctx.fill();
-      ctx.fillStyle = '#ffe9c8';
-      ctx.font = 'bold 26px sans-serif';
+      // sem vídeo em public/copa-video.mp4: barras de teste + SEM SINAL (não trava em "carregando")
+      const bars = ['#c0c0c0', '#c8c800', '#00c8c8', '#00c800', '#c800c8', '#c80000', '#0000c8', '#202020'];
+      const bw = 512 / bars.length;
+      for (let i = 0; i < bars.length; i++) {
+        ctx.fillStyle = bars[i];
+        ctx.fillRect(i * bw, 0, bw + 1, 200);
+      }
+      ctx.fillStyle = '#0b0f12';
+      ctx.fillRect(0, 200, 512, 88);
+      ctx.fillStyle = '#7fd6c2';
+      ctx.font = 'bold 34px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('SEM SINAL', 256, 250);
+      ctx.font = '18px monospace';
+      ctx.fillText('MERIDIAN TV', 256, 278);
       ctx.textAlign = 'left';
-      ctx.fillText('Carregando vídeo…', 100, 55);
     }
     // equalizador fake
     for (let i = 0; i < 32; i++) {

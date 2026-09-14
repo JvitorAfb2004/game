@@ -8,6 +8,13 @@ Task 4: complete (commit eb74034) — NPC não atravessa móveis; raio do player
 Task 5: complete (commit 7d60bfe) — Blocky FBX a/e/i/m com normalização/cache/fallback; NPC por hash
 Task 6: complete (commit pendente) — notices sincronizados, build+tsc+testes verdes
 
+Round 2 (commit 78c3d7e):
+- tempo 10x (dia = 2.4min reais); testes reescalados (tick/10), 35/35
+- salas trancadas sem mobília (env.setRoomProps por ownedRooms)
+- render distance slider (fog + camera.far) nas configs
+- usar notebook: real e NPC aparecem sentados na cadeira (env.seats + updateRemotes)
+- removida placa "COPA VIA SPAWN"; cadeira reposicionada
+
 ## Pendências conhecidas (verificar visualmente)
 - FBX_FACE_OFFSET=0: se os bonecos nascerem de costas, trocar para Math.PI em app/game/figures.ts
 - FBX blocky é rígido (sem animação de andar/sentar); humanoide procedural anima. Upgrade: AnimationMixer

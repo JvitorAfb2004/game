@@ -381,15 +381,16 @@ export function createEnvironment(
       collider(deskX, center, 1.0, 1.7);
       // ponto de acesso na borda do teclado — y atualizado para altura do laptop (~0.92)
       notebooks.push({ roomId, x: deskX - side * 0.62, y: 0.92, z: center });
-      // sala de devs: 2 mesas compridas, 6 postos cada (3 por lado) = 12
+      // sala de devs: 2 mesas compridas afastadas, 6 postos cada (3 por lado) = 12
+      // mesas em 6.8 e 9.8, postos a ±0.9 → sem postos duplicados e corredor no meio
       if (isDevRoom) {
-        for (const tx of [7.6, 9.6]) {
+        for (const tx of [6.8, 9.8]) {
           box(woodMat, tx, 0.72, center, 1.2, 0.06, 4.4);
           for (const lx of [tx - 0.5, tx + 0.5])
             for (const lz of [center - 2, center + 2]) box(woodMat, lx, 0.36, lz, 0.12, 0.72, 0.12);
           box(woodMat, tx, 0.25, center, 1.0, 0.05, 4.0);
           collider(tx, center, 1.2, 4.4, 0.8);
-          for (const sx of [tx - 1.0, tx + 1.0])
+          for (const sx of [tx - 0.9, tx + 0.9])
             for (const sz of [center - 1.6, center, center + 1.6]) {
               box(frameMat, sx, 0.225, sz, 0.45, 0.45, 0.45);
               devStations.push({
@@ -627,20 +628,20 @@ export function createEnvironment(
   makePlaque('COPA', 5.82, 1.6, copaDoorZ + 1.2, -Math.PI / 2).setText('COPA');
   // sinalização: corredor (antes da porta do spawn) + dentro do spawn (parede leste)
   makePlaque('COPALEST', 3.81, 1.6, 17.2, -Math.PI / 2).setText('COPA A LESTE');
-  // 4 mesas grandes (2.4 x 1.2) + 6 cadeiras cada (3 por lado) = 24
+  // 4 mesas (2.0 x 1.0) espaçadas: corredor central (x) e lateral (z) livres p/ andar
   const copaChairs: { x: number; z: number; ry: number }[] = [];
-  for (const [tx, tz] of [[8.5, 15], [12.5, 15], [8.5, 17.2], [12.5, 17.2]] as const) {
-    box(woodMat, tx, 0.72, tz, 2.4, 0.08, 1.2);
-    for (const lx of [tx - 0.9, tx + 0.9])
-      for (const lz of [tz - 0.45, tz + 0.45]) box(woodMat, lx, 0.36, lz, 0.12, 0.72, 0.12);
-    collider(tx, tz, 2.4, 1.2, 0.8);
-    for (const cx of [tx - 0.7, tx, tx + 0.7]) {
+  for (const [tx, tz] of [[8.0, 14.8], [12.2, 14.8], [8.0, 17.2], [12.2, 17.2]] as const) {
+    box(woodMat, tx, 0.72, tz, 2.0, 0.08, 1.0);
+    for (const lx of [tx - 0.8, tx + 0.8])
+      for (const lz of [tz - 0.35, tz + 0.35]) box(woodMat, lx, 0.36, lz, 0.12, 0.72, 0.12);
+    collider(tx, tz, 2.0, 1.0, 0.8);
+    for (const cx of [tx - 0.6, tx, tx + 0.6]) {
       // lado sul (de frente p/ mesa)
-      box(woodEdgeMat, cx, 0.225, tz - 0.95, 0.45, 0.45, 0.45);
-      copaChairs.push({ x: cx, z: tz - 0.95, ry: 0 });
+      box(woodEdgeMat, cx, 0.225, tz - 0.8, 0.45, 0.45, 0.45);
+      copaChairs.push({ x: cx, z: tz - 0.8, ry: 0 });
       // lado norte
-      box(woodEdgeMat, cx, 0.225, tz + 0.95, 0.45, 0.45, 0.45);
-      copaChairs.push({ x: cx, z: tz + 0.95, ry: Math.PI });
+      box(woodEdgeMat, cx, 0.225, tz + 0.8, 0.45, 0.45, 0.45);
+      copaChairs.push({ x: cx, z: tz + 0.8, ry: Math.PI });
     }
   }
   // balcão da cozinha (leste) + ponto das cozinheiras — cantina viva
