@@ -112,6 +112,7 @@ export function createEnvironment(
         t.repeat.set(repeat[0], repeat[1]);
         t.colorSpace = THREE.SRGBColorSpace;
         mat.map = t;
+        mat.color.set(0xffffff);
         mat.needsUpdate = true;
       },
       undefined,
@@ -311,7 +312,7 @@ export function createEnvironment(
       scene.add(sw);
 
       const roomX = side * (halfCorridor + (farAbs - halfCorridor) / 2);
-      const roomLight = new THREE.PointLight(0xffe9c8, 8, 9, 2);
+      const roomLight = new THREE.PointLight(0xffe9c8, 14, 18, 2);
       roomLight.position.set(roomX, ceilingHeight - 0.3, center);
       roomLight.visible = false;
       scene.add(roomLight);
@@ -703,7 +704,7 @@ export function createEnvironment(
   const copaTV = { x: 11, y: 1.9, z: 18.34, videoScreen, switchGroup };
   // luz da copa (acende por proximidade, igual corredor)
   box(ledMat, 11, ceilingHeight - 0.03, 16, 1.8, 0.05, 1.2);
-  const copaLight = new THREE.PointLight(0xfff2e0, 12, 14, 2);
+  const copaLight = new THREE.PointLight(0xfff2e0, 14, 14, 2);
   copaLight.position.set(11, ceilingHeight - 0.16, 16);
   copaLight.visible = false;
   scene.add(copaLight);
@@ -713,7 +714,7 @@ export function createEnvironment(
   corridorLights.push({ light: copaLight, z: 16 });
   for (const z of [7, -4, -15]) {
     box(ledMat, 0, ceilingHeight - 0.03, z, 1.4, 0.05, 1.4);
-    const p = new THREE.PointLight(0xfff2e0, 9, 13, 2);
+    const p = new THREE.PointLight(0xfff2e0, 11, 13, 2);
     p.position.set(0, ceilingHeight - 0.16, z);
     p.visible = false;
     scene.add(p);
@@ -741,8 +742,8 @@ export function createEnvironment(
   }
 
   scene.background = new THREE.Color(0x1b2126);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 0.26));
-  scene.add(new THREE.AmbientLight(0xffffff, 0.05));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x9aa0a4, 0.32));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.12));
   const lamp = new THREE.DirectionalLight(0xfff4e2, 0.22);
   lamp.position.set(6, 12, 8);
   lamp.castShadow = true;
